@@ -1,0 +1,26 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getCurrentUserId } from "@/lib/auth";
+
+export async function GET(req: NextRequest) {
+  const userId = getCurrentUserId(req);
+  if (!userId) return NextResponse.json({ error: "not_logged_in" }, { status: 401 });
+
+  const stats = await prisma.userStats.findUnique({ where: { userId } });
+  return NextResponse.json({ stats });
+}
+
+export async function PATCH(req: NextRequest) {
+  const userId = getCurrentUserId(req);
+  if (!userId) return NextResponse.json({ error: "not_logged_in" }, { status: 401 });
+
+  const { weightLbs, heightIn, age, bodyFatPct } = await req.json();
+
+  const stats = await prisma.userStats.upsert({
+    where: { userId },
+    update: { weightLbs, heightIn, age, bodyFatPct },
+    create: { userId, weightLbs, heightIn, age, bodyFatPct },
+  });
+
+  return NextResponse.json({ stats });
+}

@@ -1,0 +1,90 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String       @id @default(cuid())
+  name         String       @unique
+  createdAt    DateTime     @default(now())
+  foodLogs     FoodLog[]
+  foodPresets  FoodPreset[]
+  stepEntries  StepEntry[]
+  whoopToken   WhoopToken?
+  googleToken  GoogleToken?
+  stats        UserStats?
+}
+
+model UserStats {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id])
+  weightLbs   Float?
+  heightIn    Float?   // stored as total inches; displayed as ft + in
+  age         Int?
+  bodyFatPct  Float?
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+}
+
+model WhoopToken {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id])
+  accessToken  String
+  refreshToken String
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model GoogleToken {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id])
+  accessToken  String
+  refreshToken String
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model StepEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  date      String   // "YYYY-MM-DD"
+  steps     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, date])
+}
+
+model FoodLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  date      String
+  rawInput  String
+  items     Json
+  createdAt DateTime @default(now())
+}
+
+model FoodPreset {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  name      String
+  quantity  String
+  calories  Int
+  protein   Float
+  carbs     Float
+  fat       Float
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+}
