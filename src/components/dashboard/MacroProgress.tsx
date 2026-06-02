@@ -47,9 +47,13 @@ function MacroBar({ label, current, target, unit, decimals = 0, accentColor }: B
   const over = target > 0 && current > target * 1.05;
   const near = target > 0 && current >= target * 0.9 && current <= target * 1.05;
 
-  const barColor = over ? "bg-destructive" : near ? "bg-green-500" : accentColor;
+  const barColor = near ? "bg-green-500" : accentColor;
   const fmt = (n: number) => decimals > 0 ? n.toFixed(decimals) : Math.round(n).toLocaleString();
   const overshoot = over ? current - target : 0;
+
+  // When over: bar fills the full track (current = 100%), split into base + overshoot
+  const basePct = over ? (target / current) * 100 : pct;
+  const overshootPct = over ? ((current - target) / current) * 100 : 0;
 
   return (
     <div className="space-y-1">
@@ -62,11 +66,29 @@ function MacroBar({ label, current, target, unit, decimals = 0, accentColor }: B
           )}
         </span>
       </div>
-      <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all duration-500 ${barColor}`}
-          style={{ width: `${pct}%` }}
-        />
+      <div className="h-2 w-full rounded-full bg-muted relative overflow-hidden">
+        {over ? (
+          <>
+            <div
+              className={`absolute top-0 left-0 h-full ${barColor}`}
+              style={{ width: `${basePct}%`, borderRadius: "9999px 0 0 9999px" }}
+            />
+            <div
+              className="absolute top-0 h-full bg-destructive"
+              style={{ left: `${basePct}%`, width: `${overshootPct}%`, borderRadius: "0 9999px 9999px 0" }}
+            />
+            {/* Separator line at the target position */}
+            <div
+              className="absolute top-0 h-full w-0.5 bg-background/70"
+              style={{ left: `${basePct}%` }}
+            />
+          </>
+        ) : (
+          <div
+            className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+            style={{ width: `${pct}%` }}
+          />
+        )}
       </div>
     </div>
   );
