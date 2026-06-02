@@ -8,15 +8,27 @@ export interface MacroTargets {
 }
 
 const CALORIE_DELTA: Record<Mode, number> = {
-  cutting: -400,
+  cutting: -500,
   maintenance: 0,
-  bulking: 350,
+  bulking: 250,
+};
+
+const PROTEIN_PER_LB: Record<Mode, number> = {
+  cutting: 1.1,
+  maintenance: 1.0,
+  bulking: 1.0,
+};
+
+const FAT_GRAMS: Record<Mode, number> = {
+  cutting: 65,
+  maintenance: 75,
+  bulking: 75,
 };
 
 export function calcMacroTargets(tdee: number, weightLbs: number, mode: Mode): MacroTargets {
   const kcal = Math.round(tdee + CALORIE_DELTA[mode]);
-  const protein = Math.round(weightLbs * 1.0);       // 1 g per lb — preserves/builds muscle
-  const fat = Math.round((kcal * 0.25) / 9);         // 25% of calories from fat
-  const carbs = Math.round((kcal - protein * 4 - fat * 9) / 4); // remainder from carbs
-  return { kcal, protein, fat, carbs: Math.max(0, carbs) };
+  const protein = Math.round(weightLbs * PROTEIN_PER_LB[mode]);
+  const fat = FAT_GRAMS[mode];
+  const carbs = Math.max(0, Math.round((kcal - protein * 4 - fat * 9) / 4));
+  return { kcal, protein, fat, carbs };
 }
