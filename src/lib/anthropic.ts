@@ -44,11 +44,10 @@ export async function analyzeFoodEntry(input: string): Promise<FoodItem[]> {
     system: PARSE_SYSTEM,
     messages: [
       { role: "user", content: input },
-      { role: "assistant", content: "{" }, // prefill to ensure clean JSON
     ],
   });
 
-  const text = "{" + (response.content[0].type === "text" ? response.content[0].text : "");
+  const text = response.content[0].type === "text" ? response.content[0].text : "";
   const parsed = JSON.parse(text);
   const raw: FoodItem[] = Array.isArray(parsed) ? parsed : parsed.items ?? [];
   if (!Array.isArray(raw)) throw new Error("Response is not an array");

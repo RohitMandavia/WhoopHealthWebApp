@@ -43,12 +43,11 @@ export async function POST(req: NextRequest) {
         role: "user",
         content: `Current log:\n${currentLog}\n\nRequest: ${message}`,
       },
-      { role: "assistant", content: "{" }, // prefill to ensure clean JSON
     ],
   });
 
   try {
-    const text = "{" + (response.content[0].type === "text" ? response.content[0].text : "");
+    const text = response.content[0].type === "text" ? response.content[0].text : "";
     const result = JSON.parse(text) as { items: FoodItem[]; reply: string };
 
     if (!Array.isArray(result.items)) throw new Error("items is not an array");
