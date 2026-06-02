@@ -9,8 +9,18 @@ interface Props {
   date: string;
   userId: string;
   isOwner: boolean;
-  currentWeight: number | null; // from UserStats for reference line
+  currentWeight: number | null;
 }
+
+// Explicit dark-theme colors — CSS variables don't resolve inside Recharts SVG
+const COLORS = {
+  line:       "#818cf8", // indigo-400
+  dot:        "#818cf8",
+  tick:       "#6b7280", // gray-500
+  tooltip:    "#1e2235", // card background
+  border:     "#3f4560", // card border
+  reference:  "#6b7280",
+};
 
 function fmtDate(d: string) {
   const [, m, day] = d.split("-");
@@ -43,7 +53,6 @@ export default function WeightChart({ date, userId, isOwner, currentWeight }: Pr
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ date, weightLbs: val }),
     });
-    // Refresh entries
     const res = await fetch(`/api/weight?userId=${userId}`);
     const d = res.ok ? await res.json() : null;
     setEntries(d?.entries ?? []);
@@ -86,32 +95,34 @@ export default function WeightChart({ date, userId, isOwner, currentWeight }: Pr
               <XAxis
                 dataKey="date"
                 tickFormatter={fmtDate}
-                tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                tick={{ fontSize: 10, fill: COLORS.tick }}
                 tickLine={false}
                 axisLine={false}
                 interval="preserveStartEnd"
               />
               <YAxis
                 domain={[yMin ?? "auto", yMax ?? "auto"]}
-                tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                tick={{ fontSize: 10, fill: COLORS.tick }}
                 tickLine={false}
                 axisLine={false}
                 tickCount={4}
               />
               <Tooltip
                 contentStyle={{
-                  background: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
+                  background: COLORS.tooltip,
+                  border: `1px solid ${COLORS.border}`,
                   borderRadius: "6px",
                   fontSize: 12,
+                  color: "#e5e7eb",
                 }}
                 formatter={(v) => [`${v} lbs`, "Weight"]}
                 labelFormatter={(d) => typeof d === "string" ? fmtDate(d) : String(d)}
+                cursor={{ stroke: COLORS.reference, strokeWidth: 1 }}
               />
               {currentWeight && (
                 <ReferenceLine
                   y={currentWeight}
-                  stroke="hsl(var(--muted-foreground))"
+                  stroke={COLORS.reference}
                   strokeDasharray="4 2"
                   strokeOpacity={0.4}
                 />
@@ -119,10 +130,10 @@ export default function WeightChart({ date, userId, isOwner, currentWeight }: Pr
               <Line
                 type="monotone"
                 dataKey="weightLbs"
-                stroke="hsl(var(--primary))"
+                stroke={COLORS.line}
                 strokeWidth={2}
-                dot={{ r: 3, fill: "hsl(var(--primary))" }}
-                activeDot={{ r: 5 }}
+                dot={{ r: 3, fill: COLORS.dot, strokeWidth: 0 }}
+                activeDot={{ r: 5, fill: COLORS.dot, strokeWidth: 0 }}
               />
             </LineChart>
           </ResponsiveContainer>
