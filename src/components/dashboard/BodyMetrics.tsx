@@ -107,7 +107,7 @@ export default function BodyMetrics({ date, userId, isOwner = true }: BodyMetric
   }, [date, userId]);
 
   useEffect(() => {
-    fetch(`/api/user/steps?date=${date}`)
+    fetch(`/api/user/steps?date=${date}&userId=${userId}`)
       .then((r) => r.json())
       .then((d) => {
         setSteps(d.steps);

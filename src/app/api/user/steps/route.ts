@@ -3,10 +3,13 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUserId } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
-  const userId = getCurrentUserId(req);
-  if (!userId) return NextResponse.json({ error: "not_logged_in" }, { status: 401 });
+  const callerId = getCurrentUserId(req);
+  if (!callerId) return NextResponse.json({ error: "not_logged_in" }, { status: 401 });
 
-  const date = req.nextUrl.searchParams.get("date") ?? new Date().toISOString().split("T")[0];
+  const { searchParams } = req.nextUrl;
+  const date = searchParams.get("date") ?? new Date().toISOString().split("T")[0];
+  // Allow viewing another user's steps (for friend view) via ?userId=
+  const userId = searchParams.get("userId") ?? callerId;
   const entry = await prisma.stepEntry.findUnique({ where: { userId_date: { userId, date } } });
   return NextResponse.json({ steps: entry?.steps ?? null });
 }

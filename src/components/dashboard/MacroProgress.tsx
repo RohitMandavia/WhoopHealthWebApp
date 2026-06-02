@@ -79,7 +79,7 @@ export default function MacroProgress({ items, date, userId }: Props) {
         .then((r) => r.json())
         .then((d) => setStats(d.stats ?? null));
 
-      fetch(`/api/user/steps?date=${date}`)
+      fetch(`/api/user/steps?date=${date}&userId=${userId}`)
         .then((r) => r.json())
         .then((d) => setSteps(d.steps ?? null));
 
