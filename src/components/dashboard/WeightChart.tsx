@@ -59,12 +59,33 @@ export default function WeightChart({ date, userId, isOwner, currentWeight }: Pr
     setSaving(false);
   }
 
-  const yMin = entries.length > 1
-    ? Math.floor(Math.min(...entries.map((e) => e.weightLbs)) - 2)
-    : undefined;
-  const yMax = entries.length > 1
-    ? Math.ceil(Math.max(...entries.map((e) => e.weightLbs)) + 2)
-    : undefined;
+  // Build a padded date range so:
+  // 1. The axis always spans at least 7 days
+  // 2. Missing dates show as gaps the line interpolates across (connectNulls)
+  const entryMap = new Map(entries.map((e) => [e.date, e.weightLbs]));
+
+  const today = new Date().toISOString().split("T")[0];
+  const firstEntry = entries[0]?.date ?? today;
+  const lastEntry  = entries[entries.length - 1]?.date ?? today;
+
+  // Ensure at least a 7-day window ending on the later of today / last entry
+  const windowEnd   = lastEntry  > today       ? lastEntry  : today;
+  const minStart    = new Date(new Date(windowEnd).getTime() - 6 * 86400000).toISOString().split("T")[0];
+  const windowStart = firstEntry < minStart    ? firstEntry : minStart;
+
+  // Generate every date in the range
+  const chartData: { date: string; weightLbs: number | null }[] = [];
+  const cursor = new Date(windowStart + "T12:00:00Z");
+  const end    = new Date(windowEnd   + "T12:00:00Z");
+  while (cursor <= end) {
+    const d = cursor.toISOString().split("T")[0];
+    chartData.push({ date: d, weightLbs: entryMap.get(d) ?? null });
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+
+  const actualValues = entries.map((e) => e.weightLbs);
+  const yMin = actualValues.length > 0 ? Math.floor(Math.min(...actualValues) - 2) : undefined;
+  const yMax = actualValues.length > 0 ? Math.ceil(Math.max(...actualValues)  + 2) : undefined;
 
   return (
     <div className="space-y-3">
@@ -88,10 +109,10 @@ export default function WeightChart({ date, userId, isOwner, currentWeight }: Pr
         </div>
       )}
 
-      {entries.length >= 2 && (
+      {entries.length >= 1 && (
         <div className="h-32">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={entries} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+            <LineChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
               <XAxis
                 dataKey="date"
                 tickFormatter={fmtDate}
@@ -134,14 +155,15 @@ export default function WeightChart({ date, userId, isOwner, currentWeight }: Pr
                 strokeWidth={2}
                 dot={{ r: 3, fill: COLORS.dot, strokeWidth: 0 }}
                 activeDot={{ r: 5, fill: COLORS.dot, strokeWidth: 0 }}
+                connectNulls
               />
             </LineChart>
           </ResponsiveContainer>
         </div>
       )}
 
-      {entries.length === 1 && isOwner && (
-        <p className="text-xs text-muted-foreground">Log weight on another day to see the trend chart.</p>
+      {entries.length === 0 && isOwner && (
+        <p className="text-xs text-muted-foreground">Log your weight to see the trend chart.</p>
       )}
     </div>
   );
