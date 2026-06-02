@@ -25,8 +25,9 @@ export default function LoginPage() {
     });
 
     if (res.ok) {
-      // Use the browser's local date so the server (which runs UTC) shows the right day
-      const today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD in local timezone
+      // Shift back 4h so that before-4am counts as the previous day
+      const shifted = new Date(Date.now() - 4 * 60 * 60 * 1000);
+      const today = shifted.toLocaleDateString("en-CA"); // YYYY-MM-DD in local timezone
       router.push(`/?date=${today}`);
     } else {
       setError("Something went wrong. Please try again.");

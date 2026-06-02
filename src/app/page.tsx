@@ -11,10 +11,10 @@ interface PageProps {
 }
 
 function todayString() {
-  // Use New York time as the server-side fallback — better than raw UTC for US users.
-  // The login page always passes an explicit ?date= using the browser's local timezone,
-  // so this fallback is only hit if someone navigates to / directly with no date param.
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date());
+  // Shift back 4h so that before-4am counts as the previous day (consistent with workout filter).
+  // Uses New York time as the server-side fallback; login always passes an explicit ?date=.
+  const shifted = new Date(Date.now() - 4 * 60 * 60 * 1000);
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(shifted);
 }
 
 function formatDisplayDate(date: string) {
