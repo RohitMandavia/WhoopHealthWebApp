@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { WhoopDaily } from "@/types";
 import type { Mode } from "@/lib/macros";
-import VitaminToggle from "./VitaminToggle";
 import WeightChart from "./WeightChart";
 
 interface Stats {
@@ -340,11 +339,6 @@ export default function BodyMetrics({ date, userId, isOwner = true }: BodyMetric
                 </p>
               </div>
             )}
-          </div>
-
-          {/* Vitamin toggle */}
-          <div className="pt-2 border-t flex items-center justify-between">
-            <VitaminToggle date={date} userId={userId} isOwner={isOwner} />
           </div>
 
           {/* Weight chart */}

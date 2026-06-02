@@ -3,11 +3,13 @@
 import { useEffect, useState } from "react";
 import { calcMacroTargets, type Mode, type MacroTargets } from "@/lib/macros";
 import type { FoodItem, WhoopDaily } from "@/types";
+import VitaminToggle from "./VitaminToggle";
 
 interface Props {
   items: FoodItem[];
   date: string;
   userId: string;
+  isOwner: boolean;
 }
 
 interface Stats {
@@ -122,7 +124,7 @@ function Ring({ label, current, target, unit, decimals = 0, color, size = 88 }: 
   );
 }
 
-export default function MacroProgress({ items, date, userId }: Props) {
+export default function MacroProgress({ items, date, userId, isOwner }: Props) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [steps, setSteps] = useState<number | null>(null);
   const [whoop, setWhoop] = useState<WhoopDaily | null>(null);
@@ -183,6 +185,8 @@ export default function MacroProgress({ items, date, userId }: Props) {
         <h3 className="text-sm font-semibold">Daily Goals</h3>
         <span className={`text-xs font-medium ${modeColor[mode]}`}>{modeLabel[mode]}</span>
       </div>
+
+      <VitaminToggle date={date} userId={userId} isOwner={isOwner} />
 
       <div className="flex justify-around items-start">
         <Ring
