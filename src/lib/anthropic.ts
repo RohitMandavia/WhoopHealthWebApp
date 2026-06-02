@@ -47,11 +47,12 @@ export async function analyzeFoodEntry(input: string): Promise<FoodItem[]> {
     ],
   });
 
-  const text = response.content[0].type === "text" ? response.content[0].text : "";
-  const parsed = JSON.parse(text);
-  const raw: FoodItem[] = Array.isArray(parsed) ? parsed : parsed.items ?? [];
-  if (!Array.isArray(raw)) throw new Error("Response is not an array");
+  const responseText = response.content[0].type === "text" ? response.content[0].text : "";
+  const cleaned = responseText.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
+  const parsed = JSON.parse(cleaned);
+  const items: FoodItem[] = Array.isArray(parsed) ? parsed : parsed.items ?? [];
+  if (!Array.isArray(items)) throw new Error("Response is not an array");
 
-  const { items } = filterZeroCalItems(raw);
-  return items;
+  const { items: validItems } = filterZeroCalItems(items);
+  return validItems;
 }

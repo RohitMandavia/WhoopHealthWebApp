@@ -47,7 +47,8 @@ export async function POST(req: NextRequest) {
   });
 
   try {
-    const text = response.content[0].type === "text" ? response.content[0].text : "";
+    const raw = response.content[0].type === "text" ? response.content[0].text : "";
+    const text = raw.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
     const result = JSON.parse(text) as { items: FoodItem[]; reply: string };
 
     if (!Array.isArray(result.items)) throw new Error("items is not an array");
