@@ -1,9 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
-import Groq from "groq-sdk";
+import Anthropic from "@anthropic-ai/sdk";
 import type { FoodItem } from "@/types";
 import { filterZeroCalItems } from "@/lib/anthropic";
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+const CHAT_SYSTEM = `You are a food log assistant with access to USDA nutritional data.
+
+Rules:
+- NEVER return 0 for calories, protein, carbs, or fat for real food items — always use USDA FoodData Central averages
+- Scale all macros by quantity: "2 eggs" = 2× the single-egg values; adjust for preparation method when relevant
+- When adding a new item, always populate all macro fields with real estimates, never leave at 0
+- Only modify items the user explicitly mentions — copy all other items to the output exactly as given, with their exact existing calorie and macro values unchanged
+- Return JSON with exactly two keys: "items" (complete updated list) and "reply" (one sentence summary)
+
+Each item: name (string), quantity (string), calories (integer kcal), protein (number g), carbs (number g), fat (number g)
+
+Respond with only valid JSON, no explanation.`;
 
 export async function POST(req: NextRequest) {
   const { message, currentItems } = await req.json() as {
@@ -21,46 +34,29 @@ export async function POST(req: NextRequest) {
         `${i + 1}. ${it.name} — ${it.quantity} — ${it.calories} cal, ${it.protein}g protein, ${it.carbs}g carbs, ${it.fat}g fat`
       ).join("\n");
 
-  const completion = await groq.chat.completions.create({
-    model: "llama-3.3-70b-versatile",
+  const response = await client.messages.create({
+    model: "claude-haiku-4-5-20251001",
+    max_tokens: 2048,
+    system: CHAT_SYSTEM,
     messages: [
-      {
-        role: "system",
-        content: `You are a food log assistant with access to USDA nutritional data.
-
-Rules:
-- NEVER return 0 for calories, protein, carbs, or fat for real food items — always use USDA FoodData Central averages
-- Scale all macros by quantity: "2 eggs" = 2× the single-egg values; adjust for preparation method when relevant
-- When adding a new item, always populate all macro fields with real estimates, never leave at 0
-- Only modify items the user explicitly mentions — copy all other items to the output exactly as given, with their exact existing calorie and macro values unchanged
-- Return JSON with exactly two keys: "items" (complete updated list) and "reply" (one sentence summary)
-
-Each item: name (string), quantity (string), calories (integer kcal), protein (number g), carbs (number g), fat (number g)`,
-      },
       {
         role: "user",
         content: `Current log:\n${currentLog}\n\nRequest: ${message}`,
       },
+      { role: "assistant", content: "{" }, // prefill to ensure clean JSON
     ],
-    temperature: 0.1,
-    max_tokens: 2048,
-    response_format: { type: "json_object" },
   });
 
   try {
-    const result = JSON.parse(completion.choices[0].message.content ?? "{}") as {
-      items: FoodItem[];
-      reply: string;
-    };
+    const text = "{" + (response.content[0].type === "text" ? response.content[0].text : "");
+    const result = JSON.parse(text) as { items: FoodItem[]; reply: string };
 
     if (!Array.isArray(result.items)) throw new Error("items is not an array");
 
-    // Restore values for items not mentioned by the user.
-    // Use word-level matching so "eggplant dip" matches "Trader Joe's Eggplant Garlic Dip".
+    // Restore values for items not mentioned by the user
     const msgLower = message.toLowerCase();
 
     function userMentionedItem(itemName: string): boolean {
-      // Consider an item mentioned if any meaningful word (>3 chars) from its name appears in the message
       const words = itemName.toLowerCase().split(/\s+/).filter((w) => w.length > 3);
       return words.some((w) => msgLower.includes(w));
     }
@@ -73,7 +69,6 @@ Each item: name (string), quantity (string), calories (integer kcal), protein (n
       return { ...item, calories: original.calories, protein: original.protein, carbs: original.carbs, fat: original.fat };
     });
 
-    // Drop any items that still have 0 calories for real food (safety net)
     const { items: validItems, dropped } = filterZeroCalItems(guardedItems);
 
     let reply = result.reply ?? "";
