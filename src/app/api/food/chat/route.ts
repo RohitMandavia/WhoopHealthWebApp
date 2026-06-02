@@ -55,13 +55,21 @@ Each item: name (string), quantity (string), calories (integer kcal), protein (n
 
     if (!Array.isArray(result.items)) throw new Error("items is not an array");
 
-    // Restore values for items not explicitly mentioned by the user
+    // Restore values for items not mentioned by the user.
+    // Use word-level matching so "eggplant dip" matches "Trader Joe's Eggplant Garlic Dip".
     const msgLower = message.toLowerCase();
+
+    function userMentionedItem(itemName: string): boolean {
+      // Consider an item mentioned if any meaningful word (>3 chars) from its name appears in the message
+      const words = itemName.toLowerCase().split(/\s+/).filter((w) => w.length > 3);
+      return words.some((w) => msgLower.includes(w));
+    }
+
     const guardedItems = result.items.map((item) => {
       const original = currentItems.find(
         (c) => c.name.toLowerCase() === item.name.toLowerCase()
       );
-      if (!original || msgLower.includes(item.name.toLowerCase())) return item;
+      if (!original || userMentionedItem(item.name)) return item;
       return { ...item, calories: original.calories, protein: original.protein, carbs: original.carbs, fat: original.fat };
     });
 
