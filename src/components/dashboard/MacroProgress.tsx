@@ -73,28 +73,25 @@ export default function MacroProgress({ items, date, userId }: Props) {
   const [whoop, setWhoop] = useState<WhoopDaily | null>(null);
 
   useEffect(() => {
-    function fetchStats() {
+    function refresh() {
       fetch("/api/user/stats")
         .then((r) => r.json())
         .then((d) => setStats(d.stats ?? null));
+
+      fetch(`/api/user/steps?date=${date}`)
+        .then((r) => r.json())
+        .then((d) => setSteps(d.steps ?? null));
+
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      fetch(`/api/whoop/daily?date=${date}&userId=${userId}&tz=${encodeURIComponent(tz)}`)
+        .then((r) => r.json())
+        .then((d) => { if (!d.error) setWhoop(d); })
+        .catch(() => {});
     }
-    fetchStats();
-    window.addEventListener("stats-updated", fetchStats);
-    return () => window.removeEventListener("stats-updated", fetchStats);
-  }, []);
 
-  useEffect(() => {
-    fetch(`/api/user/steps?date=${date}`)
-      .then((r) => r.json())
-      .then((d) => setSteps(d.steps ?? null));
-  }, [date]);
-
-  useEffect(() => {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    fetch(`/api/whoop/daily?date=${date}&userId=${userId}&tz=${encodeURIComponent(tz)}`)
-      .then((r) => r.json())
-      .then((d) => { if (!d.error) setWhoop(d); })
-      .catch(() => {});
+    refresh();
+    window.addEventListener("stats-updated", refresh);
+    return () => window.removeEventListener("stats-updated", refresh);
   }, [date, userId]);
 
   if (!stats?.weightLbs || !stats?.bodyFatPct || !stats?.mode) return null;

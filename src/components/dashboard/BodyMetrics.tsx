@@ -125,6 +125,7 @@ export default function BodyMetrics({ date, userId }: BodyMetricsProps) {
     const { steps: saved } = await res.json();
     setSteps(saved);
     setSavingSteps(false);
+    window.dispatchEvent(new CustomEvent("stats-updated"));
   }
 
   function openEdit() {
