@@ -114,14 +114,13 @@ function Ring({ label, sublabel, current, target, unit, decimals = 0, color, siz
 
 const PARTICLES = ["✨", "🎉", "⭐", "🌟", "✨", "💊"];
 
-interface VitaminRingProps {
+interface VitaminButtonProps {
   date: string;
   userId: string;
   isOwner: boolean;
-  size: number;
 }
 
-function VitaminRing({ date, userId, isOwner, size }: VitaminRingProps) {
+function VitaminButton({ date, userId, isOwner }: VitaminButtonProps) {
   const [taken, setTaken] = useState<boolean | null>(null);
   const [saving, setSaving] = useState(false);
   const [celebrating, setCelebrating] = useState(false);
@@ -147,52 +146,38 @@ function VitaminRing({ date, userId, isOwner, size }: VitaminRingProps) {
     setSaving(false);
   }
 
-  if (taken === null) return <div style={{ width: size, height: size }} />;
-
-  const sw = 6;
-  const r = (size - sw) / 2;
-  const circ = 2 * Math.PI * r;
-  const color = taken ? C.green : "rgba(255,255,255,0.15)";
+  if (taken === null) return null;
 
   return (
     <>
       <style>{`
-        @keyframes vitaminPop { 0%{transform:scale(1)} 40%{transform:scale(1.2)} 100%{transform:scale(1)} }
+        @keyframes vitaminPop { 0%{transform:scale(1)} 40%{transform:scale(1.25)} 70%{transform:scale(0.92)} 100%{transform:scale(1)} }
         @keyframes vitaminFloat { 0%{transform:translateY(0);opacity:1} 100%{transform:translateY(-44px);opacity:0} }
-        .vit-pop { animation: vitaminPop 0.35s ease forwards; }
+        .vit-pop { animation: vitaminPop 0.4s ease forwards; }
         .vit-particle { position:absolute; pointer-events:none; font-size:12px; animation: vitaminFloat 0.9s ease-out forwards; }
       `}</style>
-      <div className="flex flex-col items-center gap-1">
-        <div className="relative" style={{ width: size, height: size }}>
-          <button
-            onClick={handleToggle}
-            disabled={!isOwner || saving}
-            className={`relative w-full h-full rounded-full ${isOwner ? "cursor-pointer" : "cursor-default"} ${celebrating ? "vit-pop" : ""}`}
-            title={taken ? "Mark not taken" : "Mark vitamins taken"}
-          >
-            <svg width={size} height={size} style={{ transform: "rotate(-90deg)", position: "absolute", inset: 0 }}>
-              <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={C.track} strokeWidth={sw} />
-              {taken && (
-                <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={C.green} strokeWidth={sw}
-                  strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={0}
-                  style={{ transition: "stroke-dashoffset 0.4s ease" }}
-                />
-              )}
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span style={{ fontSize: size > 70 ? 18 : 14 }}>{taken ? "✓" : "💊"}</span>
-            </div>
-          </button>
-
-          {celebrating && PARTICLES.map((emoji, i) => (
-            <span key={i} className="vit-particle" style={{ left: `${20 + i * 12}%`, bottom: "50%", animationDelay: `${i * 0.07}s` }}>
-              {emoji}
-            </span>
-          ))}
-        </div>
-        <p style={{ fontSize: 10 }} className="font-medium text-center leading-tight">
-          {taken ? "Vitamins\ntaken" : "Took\nvitamins"}
-        </p>
+      <div className="relative flex justify-center">
+        <button
+          onClick={handleToggle}
+          disabled={!isOwner || saving}
+          className={[
+            "flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-medium transition-colors",
+            celebrating ? "vit-pop" : "",
+            taken
+              ? "bg-green-500/20 text-green-400 border border-green-500/40"
+              : isOwner
+              ? "bg-muted text-muted-foreground border border-border hover:border-green-500/40 hover:text-green-400"
+              : "bg-muted text-muted-foreground border border-border cursor-default",
+          ].join(" ")}
+        >
+          <span>{taken ? "✓" : "○"}</span>
+          {taken ? "Vitamins taken" : "Took vitamins"}
+        </button>
+        {celebrating && PARTICLES.map((emoji, i) => (
+          <span key={i} className="vit-particle" style={{ left: `${20 + i * 12}%`, bottom: "50%", animationDelay: `${i * 0.07}s` }}>
+            {emoji}
+          </span>
+        ))}
       </div>
     </>
   );
@@ -254,33 +239,35 @@ export default function MacroProgress({ items, date, userId, isOwner }: Props) {
         <span className={`text-xs font-medium ${modeColor[mode]}`}>{modeLabel[mode]}</span>
       </div>
 
-      {/* Top row: large calorie ring + small vitamin ring */}
-      <div className="flex items-end justify-center gap-6">
+      {/* Centered large calorie ring */}
+      <div className="flex justify-center">
         <Ring
           label="Calories"
           sublabel={`${targets.kcal.toLocaleString()} kcal goal`}
           current={current.kcal} target={targets.kcal} unit="kcal"
           color={calRingColor(calProgress)}
-          size={120} strokeWidth={10}
+          size={148} strokeWidth={12}
         />
-        <VitaminRing date={date} userId={userId} isOwner={isOwner} size={72} />
       </div>
 
-      {/* Bottom row: 3 macro rings */}
+      {/* 3 macro rings below */}
       <div className="flex justify-around">
         <Ring
           label="Protein" current={current.protein} target={targets.protein} unit="g" decimals={1}
-          color={macroRingColor(proteinProgress, calProgress)} size={80}
+          color={macroRingColor(proteinProgress, calProgress)} size={82}
         />
         <Ring
           label="Carbs" current={current.carbs} target={targets.carbs} unit="g" decimals={1}
-          color={macroRingColor(carbProgress, calProgress)} size={80}
+          color={macroRingColor(carbProgress, calProgress)} size={82}
         />
         <Ring
           label="Fat" current={current.fat} target={targets.fat} unit="g" decimals={1}
-          color={macroRingColor(fatProgress, calProgress)} size={80}
+          color={macroRingColor(fatProgress, calProgress)} size={82}
         />
       </div>
+
+      {/* Vitamin toggle */}
+      <VitaminButton date={date} userId={userId} isOwner={isOwner} />
     </div>
   );
 }
