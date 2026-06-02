@@ -41,12 +41,20 @@ export default function UserPicker({ loggedInUserId, currentViewId, date }: User
   }
 
   async function handleDelete(user: User) {
-    if (!confirm(`Delete ${user.name} and all their data? This cannot be undone.`)) return;
+    const isSelf = user.id === loggedInUserId;
+    const msg = isSelf
+      ? "Delete your account and all your data? This cannot be undone."
+      : `Delete ${user.name} and all their data? This cannot be undone.`;
+    if (!confirm(msg)) return;
+
     await fetch(`/api/users/${user.id}`, { method: "DELETE" });
-    setUsers((prev) => prev.filter((u) => u.id !== user.id));
-    // If we were viewing the deleted user, go back to own dashboard
-    if (currentViewId === user.id) {
-      router.push(`/?date=${date}`);
+
+    if (isSelf) {
+      await fetch("/api/auth/logout", { method: "POST" });
+      router.push("/login");
+    } else {
+      setUsers((prev) => prev.filter((u) => u.id !== user.id));
+      if (currentViewId === user.id) router.push(`/?date=${date}`);
     }
   }
 
@@ -82,12 +90,20 @@ export default function UserPicker({ loggedInUserId, currentViewId, date }: User
           </div>
         );
       })}
-      <button
-        onClick={handleLogout}
-        className="ml-auto text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
-      >
-        Log out
-      </button>
+      <div className="ml-auto flex items-center gap-3">
+        <button
+          onClick={() => handleDelete(users.find((u) => u.id === loggedInUserId)!)}
+          className="text-xs text-destructive hover:opacity-70 underline underline-offset-2"
+        >
+          Delete account
+        </button>
+        <button
+          onClick={handleLogout}
+          className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+        >
+          Log out
+        </button>
+      </div>
     </div>
   );
 }

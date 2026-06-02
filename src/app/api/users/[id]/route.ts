@@ -17,10 +17,11 @@ export async function DELETE(
   }
 
   const { id } = await params;
+  const isSelf = id === callerId;
 
-  // Prevent self-deletion
-  if (id === callerId) {
-    return NextResponse.json({ error: "cannot_delete_self" }, { status: 400 });
+  // Anyone can delete their own account; only admin can delete others
+  if (!isSelf && caller?.name !== ADMIN_NAME) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
   // Cascade delete all user data
