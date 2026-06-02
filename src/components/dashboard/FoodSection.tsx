@@ -127,7 +127,7 @@ export default function FoodSection({ date, userId, isOwner }: FoodSectionProps)
         </div>
       )}
 
-      <MacroProgress items={allItems} date={date} />
+      <MacroProgress items={allItems} date={date} userId={userId} />
 
       <FoodTable
         logs={logs}
