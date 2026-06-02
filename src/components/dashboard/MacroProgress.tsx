@@ -49,6 +49,7 @@ function MacroBar({ label, current, target, unit, decimals = 0, accentColor }: B
 
   const barColor = over ? "bg-destructive" : near ? "bg-green-500" : accentColor;
   const fmt = (n: number) => decimals > 0 ? n.toFixed(decimals) : Math.round(n).toLocaleString();
+  const overshoot = over ? current - target : 0;
 
   return (
     <div className="space-y-1">
@@ -56,6 +57,9 @@ function MacroBar({ label, current, target, unit, decimals = 0, accentColor }: B
         <span className="font-medium">{label}</span>
         <span className="text-muted-foreground">
           {fmt(current)}<span className="text-muted-foreground/60"> / {fmt(target)} {unit}</span>
+          {over && (
+            <span className="ml-1.5 text-destructive font-medium">+{fmt(overshoot)} over</span>
+          )}
         </span>
       </div>
       <div className="h-2 w-full rounded-full bg-muted overflow-hidden">

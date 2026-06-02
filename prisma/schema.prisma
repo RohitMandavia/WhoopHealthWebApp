@@ -14,9 +14,31 @@ model User {
   foodLogs     FoodLog[]
   foodPresets  FoodPreset[]
   stepEntries  StepEntry[]
+  vitaminLogs  VitaminLog[]
+  weightEntries WeightEntry[]
   whoopToken   WhoopToken?
   googleToken  GoogleToken?
   stats        UserStats?
+}
+
+model VitaminLog {
+  id     String  @id @default(cuid())
+  userId String
+  user   User    @relation(fields: [userId], references: [id])
+  date   String
+  taken  Boolean @default(false)
+
+  @@unique([userId, date])
+}
+
+model WeightEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  date      String
+  weightLbs Float
+
+  @@unique([userId, date])
 }
 
 model UserStats {
