@@ -73,9 +73,14 @@ export default function MacroProgress({ items, date, userId }: Props) {
   const [whoop, setWhoop] = useState<WhoopDaily | null>(null);
 
   useEffect(() => {
-    fetch("/api/user/stats")
-      .then((r) => r.json())
-      .then((d) => setStats(d.stats ?? null));
+    function fetchStats() {
+      fetch("/api/user/stats")
+        .then((r) => r.json())
+        .then((d) => setStats(d.stats ?? null));
+    }
+    fetchStats();
+    window.addEventListener("stats-updated", fetchStats);
+    return () => window.removeEventListener("stats-updated", fetchStats);
   }, []);
 
   useEffect(() => {

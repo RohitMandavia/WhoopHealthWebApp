@@ -86,6 +86,7 @@ export default function BodyMetrics({ date, userId }: BodyMetricsProps) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ mode }),
     });
+    window.dispatchEvent(new CustomEvent("stats-updated"));
   }
 
   useEffect(() => {
