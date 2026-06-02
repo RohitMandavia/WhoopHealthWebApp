@@ -89,16 +89,25 @@ function Ring({ label, sublabel, current, target, unit, decimals = 0, color, bas
   const overshootFrac = over ? Math.min(progress - 1, 1) : 0;
   const fmt = (n: number) => decimals > 0 ? n.toFixed(decimals) : Math.round(n).toLocaleString();
 
-  // Build gradient overshoot segments: base color → red
-  const overshootSegments = over ? Array.from({ length: GRAD_SEGS }, (_, i) => {
+  // Main arc segments: always gradient from baseHex → state color (color prop)
+  const mainProgress = Math.min(progress, 1);
+  const mainSegs = mainProgress > 0 ? Array.from({ length: GRAD_SEGS }, (_, i) => {
+    const segStart = (i / GRAD_SEGS) * mainProgress;
+    const segEnd   = Math.min(((i + 1) / GRAD_SEGS) * mainProgress, mainProgress);
+    const segLen   = (segEnd - segStart) * circ;
+    if (segLen <= 0) return null;
+    const t = GRAD_SEGS > 1 ? i / (GRAD_SEGS - 1) : 1;
+    return { segLen, dashOffset: circ - segStart * circ, segColor: blendHex(baseHex, color, t), i };
+  }).filter(Boolean) : [];
+
+  // Overshoot segments: state color → red, wrapping past 12 o'clock
+  const overshootSegs = over ? Array.from({ length: GRAD_SEGS }, (_, i) => {
     const segStart = (i / GRAD_SEGS) * overshootFrac;
     const segEnd   = Math.min(((i + 1) / GRAD_SEGS) * overshootFrac, overshootFrac);
     const segLen   = (segEnd - segStart) * circ;
     if (segLen <= 0) return null;
-    const t = i / (GRAD_SEGS - 1);
-    const segColor = blendHex(baseHex, "#f87171", t);
-    const dashOffset = circ - segStart * circ;
-    return { segLen, dashOffset, segColor, i };
+    const t = GRAD_SEGS > 1 ? i / (GRAD_SEGS - 1) : 1;
+    return { segLen, dashOffset: circ - segStart * circ, segColor: blendHex(color, "#f87171", t), i };
   }).filter(Boolean) : [];
 
   return (
@@ -108,30 +117,37 @@ function Ring({ label, sublabel, current, target, unit, decimals = 0, color, bas
           {/* Track */}
           <circle cx={cx} cy={cy} r={r} fill="none" stroke={C.track} strokeWidth={strokeWidth} />
 
-          {over ? (
-            <>
-              {/* Full base circle when over */}
-              <circle cx={cx} cy={cy} r={r} fill="none" stroke={color} strokeWidth={strokeWidth}
-                strokeOpacity={0.4} />
-              {/* Gradient overshoot segments */}
-              {overshootSegments.map((seg) => seg && (
-                <circle key={seg.i} cx={cx} cy={cy} r={r} fill="none"
-                  stroke={seg.segColor} strokeWidth={strokeWidth}
-                  strokeLinecap={seg.i === overshootSegments.length - 1 ? "round" : "butt"}
-                  strokeDasharray={`${seg.segLen} ${circ - seg.segLen}`}
-                  strokeDashoffset={seg.dashOffset}
-                />
-              ))}
-            </>
-          ) : (
-            /* Normal progress arc */
-            <circle cx={cx} cy={cy} r={r} fill="none" stroke={color} strokeWidth={strokeWidth}
-              strokeLinecap="round"
-              strokeDasharray={circ}
-              strokeDashoffset={circ * (1 - Math.min(progress, 1))}
-              style={{ transition: "stroke-dashoffset 0.5s ease, stroke 0.3s ease" }}
+          {/* Main gradient arc — always shown */}
+          {mainSegs.map((seg) => seg && (
+            <circle key={`m${seg.i}`} cx={cx} cy={cy} r={r} fill="none"
+              stroke={seg.segColor} strokeWidth={strokeWidth}
+              strokeLinecap="butt"
+              strokeDasharray={`${seg.segLen} ${circ - seg.segLen}`}
+              strokeDashoffset={seg.dashOffset}
             />
-          )}
+          ))}
+          {/* Round cap at the tip */}
+          {mainProgress > 0 && (() => {
+            const tipAngle = mainProgress * 2 * Math.PI - Math.PI / 2;
+            return <circle cx={cx + r * Math.cos(tipAngle)} cy={cy + r * Math.sin(tipAngle)}
+              r={strokeWidth / 2} fill={color} />;
+          })()}
+
+          {/* Overshoot arc — wraps past 12 o'clock when over */}
+          {overshootSegs.map((seg) => seg && (
+            <circle key={`o${seg.i}`} cx={cx} cy={cy} r={r} fill="none"
+              stroke={seg.segColor} strokeWidth={strokeWidth}
+              strokeLinecap="butt"
+              strokeDasharray={`${seg.segLen} ${circ - seg.segLen}`}
+              strokeDashoffset={seg.dashOffset}
+            />
+          ))}
+          {/* Round cap at overshoot tip */}
+          {over && overshootFrac > 0 && (() => {
+            const tipAngle = overshootFrac * 2 * Math.PI - Math.PI / 2;
+            return <circle cx={cx + r * Math.cos(tipAngle)} cy={cy + r * Math.sin(tipAngle)}
+              r={strokeWidth / 2} fill="#f87171" />;
+          })()}
         </svg>
 
         {/* Center text */}
