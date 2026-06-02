@@ -89,6 +89,8 @@ export default function FoodSection({ date, userId, isOwner }: FoodSectionProps)
 
   return (
     <div className="space-y-4">
+      <MacroProgress items={allItems} date={date} userId={userId} isOwner={isOwner} />
+
       <div className="space-y-2">
         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
           {isOwner ? "Quick Add" : "Presets"}
@@ -126,8 +128,6 @@ export default function FoodSection({ date, userId, isOwner }: FoodSectionProps)
           </Button>
         </div>
       )}
-
-      <MacroProgress items={allItems} date={date} userId={userId} isOwner={isOwner} />
 
       <FoodTable
         logs={logs}

@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { calcMacroTargets, type Mode, type MacroTargets } from "@/lib/macros";
 import type { FoodItem, WhoopDaily } from "@/types";
-import VitaminToggle from "./VitaminToggle";
 
 interface Props {
   items: FoodItem[];
@@ -35,7 +34,6 @@ function estimateWorkoutKcal(workout: WhoopDaily["workouts"][number], weightKg: 
   return Math.round(met * weightKg * (durationMin / 60));
 }
 
-// ── Ring colors (explicit hex — CSS vars don't resolve in SVG attributes) ──
 const C = {
   green:  "#4ade80",
   yellow: "#facc15",
@@ -60,17 +58,19 @@ function calRingColor(progress: number): string {
 
 interface RingProps {
   label: string;
+  sublabel?: string;
   current: number;
   target: number;
   unit: string;
   decimals?: number;
   color: string;
-  size?: number;
+  size: number;
+  strokeWidth?: number;
+  centerContent?: React.ReactNode;
 }
 
-function Ring({ label, current, target, unit, decimals = 0, color, size = 88 }: RingProps) {
-  const sw = 8;
-  const r = (size - sw) / 2;
+function Ring({ label, sublabel, current, target, unit, decimals = 0, color, size, strokeWidth = 8, centerContent }: RingProps) {
+  const r = (size - strokeWidth) / 2;
   const circ = 2 * Math.PI * r;
   const progress = target > 0 ? current / target : 0;
   const clamped = Math.min(progress, 1);
@@ -78,49 +78,123 @@ function Ring({ label, current, target, unit, decimals = 0, color, size = 88 }: 
   const fmt = (n: number) => decimals > 0 ? n.toFixed(decimals) : Math.round(n).toLocaleString();
 
   return (
-    <div className="flex flex-col items-center gap-1.5">
+    <div className="flex flex-col items-center gap-1">
       <div className="relative" style={{ width: size, height: size }}>
         <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
-          {/* Track */}
-          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={C.track} strokeWidth={sw} />
-          {/* Progress arc */}
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={C.track} strokeWidth={strokeWidth} />
           <circle
             cx={size / 2} cy={size / 2} r={r}
-            fill="none"
-            stroke={color}
-            strokeWidth={sw}
+            fill="none" stroke={color} strokeWidth={strokeWidth}
             strokeLinecap="round"
             strokeDasharray={circ}
             strokeDashoffset={circ * (1 - clamped)}
             style={{ transition: "stroke-dashoffset 0.5s ease, stroke 0.3s ease" }}
           />
-          {/* Overshoot tick at 12-o'clock when over */}
-          {over && (
-            <circle
-              cx={size / 2} cy={sw / 2}
-              r={sw / 2 - 1}
-              fill={C.red}
-            />
-          )}
+          {over && <circle cx={size / 2} cy={strokeWidth / 2} r={strokeWidth / 2 - 1} fill={C.red} />}
         </svg>
-        {/* Center text */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-xs font-bold leading-none" style={{ color }}>
-            {fmt(current)}
-          </span>
-          <span className="text-[9px] text-muted-foreground leading-none mt-0.5">{unit}</span>
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
+          {centerContent ?? (
+            <>
+              <span className="font-bold leading-none" style={{ fontSize: size > 90 ? 18 : 12, color }}>
+                {fmt(current)}
+              </span>
+              <span style={{ fontSize: size > 90 ? 10 : 9, color: "#6b7280" }}>{unit}</span>
+            </>
+          )}
         </div>
       </div>
-      <div className="text-center">
-        <p className="text-xs font-medium">{label}</p>
-        <p className="text-[9px] text-muted-foreground">{fmt(target)} {unit}</p>
-        {over && (
-          <p className="text-[9px] font-medium" style={{ color: C.red }}>
-            +{fmt(current - target)} over
-          </p>
-        )}
+      <div className="text-center leading-tight">
+        <p style={{ fontSize: size > 90 ? 12 : 10 }} className="font-medium">{label}</p>
+        {sublabel && <p style={{ fontSize: 9 }} className="text-muted-foreground">{sublabel}</p>}
+        {over && <p style={{ fontSize: 9, color: C.red }} className="font-medium">+{fmt(current - target)} over</p>}
       </div>
     </div>
+  );
+}
+
+const PARTICLES = ["✨", "🎉", "⭐", "🌟", "✨", "💊"];
+
+interface VitaminRingProps {
+  date: string;
+  userId: string;
+  isOwner: boolean;
+  size: number;
+}
+
+function VitaminRing({ date, userId, isOwner, size }: VitaminRingProps) {
+  const [taken, setTaken] = useState<boolean | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [celebrating, setCelebrating] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/vitamins?date=${date}&userId=${userId}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => setTaken(d?.taken ?? false))
+      .catch(() => setTaken(false));
+  }, [date, userId]);
+
+  async function handleToggle() {
+    if (!isOwner || saving || taken === null) return;
+    setSaving(true);
+    const next = !taken;
+    setTaken(next);
+    if (next) { setCelebrating(true); setTimeout(() => setCelebrating(false), 900); }
+    await fetch("/api/vitamins", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date, taken: next }),
+    });
+    setSaving(false);
+  }
+
+  if (taken === null) return <div style={{ width: size, height: size }} />;
+
+  const sw = 6;
+  const r = (size - sw) / 2;
+  const circ = 2 * Math.PI * r;
+  const color = taken ? C.green : "rgba(255,255,255,0.15)";
+
+  return (
+    <>
+      <style>{`
+        @keyframes vitaminPop { 0%{transform:scale(1)} 40%{transform:scale(1.2)} 100%{transform:scale(1)} }
+        @keyframes vitaminFloat { 0%{transform:translateY(0);opacity:1} 100%{transform:translateY(-44px);opacity:0} }
+        .vit-pop { animation: vitaminPop 0.35s ease forwards; }
+        .vit-particle { position:absolute; pointer-events:none; font-size:12px; animation: vitaminFloat 0.9s ease-out forwards; }
+      `}</style>
+      <div className="flex flex-col items-center gap-1">
+        <div className="relative" style={{ width: size, height: size }}>
+          <button
+            onClick={handleToggle}
+            disabled={!isOwner || saving}
+            className={`relative w-full h-full rounded-full ${isOwner ? "cursor-pointer" : "cursor-default"} ${celebrating ? "vit-pop" : ""}`}
+            title={taken ? "Mark not taken" : "Mark vitamins taken"}
+          >
+            <svg width={size} height={size} style={{ transform: "rotate(-90deg)", position: "absolute", inset: 0 }}>
+              <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={C.track} strokeWidth={sw} />
+              {taken && (
+                <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={C.green} strokeWidth={sw}
+                  strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={0}
+                  style={{ transition: "stroke-dashoffset 0.4s ease" }}
+                />
+              )}
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span style={{ fontSize: size > 70 ? 18 : 14 }}>{taken ? "✓" : "💊"}</span>
+            </div>
+          </button>
+
+          {celebrating && PARTICLES.map((emoji, i) => (
+            <span key={i} className="vit-particle" style={{ left: `${20 + i * 12}%`, bottom: "50%", animationDelay: `${i * 0.07}s` }}>
+              {emoji}
+            </span>
+          ))}
+        </div>
+        <p style={{ fontSize: 10 }} className="font-medium text-center leading-tight">
+          {taken ? "Vitamins\ntaken" : "Took\nvitamins"}
+        </p>
+      </div>
+    </>
   );
 }
 
@@ -134,18 +208,15 @@ export default function MacroProgress({ items, date, userId, isOwner }: Props) {
       fetch(`/api/user/stats?userId=${userId}`)
         .then((r) => r.json())
         .then((d) => setStats(d.stats ?? null));
-
       fetch(`/api/user/steps?date=${date}&userId=${userId}`)
         .then((r) => r.json())
         .then((d) => setSteps(d.steps ?? null));
-
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
       fetch(`/api/whoop/daily?date=${date}&userId=${userId}&tz=${encodeURIComponent(tz)}`)
         .then((r) => r.json())
         .then((d) => { if (!d.error) setWhoop(d); })
         .catch(() => {});
     }
-
     refresh();
     window.addEventListener("stats-updated", refresh);
     return () => window.removeEventListener("stats-updated", refresh);
@@ -157,10 +228,7 @@ export default function MacroProgress({ items, date, userId, isOwner }: Props) {
   const weightKg = stats.weightLbs * 0.453592;
   const bmr = calcBMR(stats.weightLbs, stats.bodyFatPct);
   const stepKcal = steps != null ? Math.round(steps * weightKg * 0.0006) : 0;
-  const workoutKcal = whoop?.workouts.reduce(
-    (sum, w) => sum + estimateWorkoutKcal(w, weightKg, 30),
-    0
-  ) ?? 0;
+  const workoutKcal = whoop?.workouts.reduce((sum, w) => sum + estimateWorkoutKcal(w, weightKg, 30), 0) ?? 0;
   const tdee = Math.round(bmr * 1.2) + stepKcal + workoutKcal;
   const targets: MacroTargets = calcMacroTargets(tdee, stats.weightLbs, mode);
 
@@ -180,30 +248,37 @@ export default function MacroProgress({ items, date, userId, isOwner }: Props) {
   const modeColor: Record<Mode, string> = { cutting: "text-blue-500", maintenance: "text-green-500", bulking: "text-orange-500" };
 
   return (
-    <div className="rounded-lg border bg-card p-4 space-y-4">
+    <div className="rounded-lg border bg-card p-4 space-y-5">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold">Daily Goals</h3>
         <span className={`text-xs font-medium ${modeColor[mode]}`}>{modeLabel[mode]}</span>
       </div>
 
-      <VitaminToggle date={date} userId={userId} isOwner={isOwner} />
-
-      <div className="flex justify-around items-start">
+      {/* Top row: large calorie ring + small vitamin ring */}
+      <div className="flex items-end justify-center gap-6">
         <Ring
-          label="Calories" current={current.kcal} target={targets.kcal} unit="kcal"
-          color={calRingColor(calProgress)} size={96}
+          label="Calories"
+          sublabel={`${targets.kcal.toLocaleString()} kcal goal`}
+          current={current.kcal} target={targets.kcal} unit="kcal"
+          color={calRingColor(calProgress)}
+          size={120} strokeWidth={10}
         />
+        <VitaminRing date={date} userId={userId} isOwner={isOwner} size={72} />
+      </div>
+
+      {/* Bottom row: 3 macro rings */}
+      <div className="flex justify-around">
         <Ring
           label="Protein" current={current.protein} target={targets.protein} unit="g" decimals={1}
-          color={macroRingColor(proteinProgress, calProgress)}
+          color={macroRingColor(proteinProgress, calProgress)} size={80}
         />
         <Ring
           label="Carbs" current={current.carbs} target={targets.carbs} unit="g" decimals={1}
-          color={macroRingColor(carbProgress, calProgress)}
+          color={macroRingColor(carbProgress, calProgress)} size={80}
         />
         <Ring
           label="Fat" current={current.fat} target={targets.fat} unit="g" decimals={1}
-          color={macroRingColor(fatProgress, calProgress)}
+          color={macroRingColor(fatProgress, calProgress)} size={80}
         />
       </div>
     </div>

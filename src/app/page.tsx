@@ -80,24 +80,25 @@ export default async function Home({ searchParams }: PageProps) {
           )}
         </p>
 
-        {/* Body metrics shown for everyone — read-only when viewing a friend */}
-        <BodyMetrics date={date} userId={viewUserId} isOwner={isOwner} />
-
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <section>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">Activity</h2>
-              {isOwner && (
-                <a href="/api/whoop/auth" className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2">
-                  Reconnect Whoop
-                </a>
-              )}
+          <section className="space-y-8">
+            {/* Body metrics — same width as activity column */}
+            <BodyMetrics date={date} userId={viewUserId} isOwner={isOwner} />
+
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold">Activity</h2>
+                {isOwner && (
+                  <a href="/api/whoop/auth" className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2">
+                    Reconnect Whoop
+                  </a>
+                )}
+              </div>
+              <WhoopSection date={date} userId={viewUserId} isOwner={isOwner} />
             </div>
-            <WhoopSection date={date} userId={viewUserId} isOwner={isOwner} />
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-4">Food Log</h2>
             <FoodSection date={date} userId={viewUserId} isOwner={isOwner} />
           </section>
         </div>
