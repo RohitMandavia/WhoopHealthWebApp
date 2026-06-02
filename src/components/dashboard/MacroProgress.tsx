@@ -33,61 +33,89 @@ function estimateWorkoutKcal(workout: WhoopDaily["workouts"][number], weightKg: 
   return Math.round(met * weightKg * (durationMin / 60));
 }
 
-interface BarProps {
+// ── Ring colors (explicit hex — CSS vars don't resolve in SVG attributes) ──
+const C = {
+  green:  "#4ade80",
+  yellow: "#facc15",
+  red:    "#f87171",
+  indigo: "#818cf8",
+  track:  "rgba(255,255,255,0.08)",
+};
+
+function macroRingColor(macroProgress: number, calProgress: number): string {
+  if (calProgress === 0) return macroProgress === 0 ? C.indigo : C.red;
+  const ratio = macroProgress / calProgress;
+  if (ratio >= 0.8 && ratio <= 1.2) return C.green;
+  if (ratio > 1.2) return C.red;
+  return C.yellow;
+}
+
+function calRingColor(progress: number): string {
+  if (progress > 1.05) return C.red;
+  if (progress >= 0.9) return C.green;
+  return C.indigo;
+}
+
+interface RingProps {
   label: string;
   current: number;
   target: number;
   unit: string;
   decimals?: number;
-  accentColor: string; // Tailwind bg class for the bar's base color
+  color: string;
+  size?: number;
 }
 
-function MacroBar({ label, current, target, unit, decimals = 0, accentColor }: BarProps) {
-  const pct = target > 0 ? Math.min((current / target) * 100, 100) : 0;
-  const over = target > 0 && current > target * 1.05;
-  const near = target > 0 && current >= target * 0.9 && current <= target * 1.05;
-
-  const barColor = near ? "bg-green-500" : accentColor;
+function Ring({ label, current, target, unit, decimals = 0, color, size = 88 }: RingProps) {
+  const sw = 8;
+  const r = (size - sw) / 2;
+  const circ = 2 * Math.PI * r;
+  const progress = target > 0 ? current / target : 0;
+  const clamped = Math.min(progress, 1);
+  const over = progress > 1.05;
   const fmt = (n: number) => decimals > 0 ? n.toFixed(decimals) : Math.round(n).toLocaleString();
-  const overshoot = over ? current - target : 0;
-
-  // When over: bar fills the full track (current = 100%), split into base + overshoot
-  const basePct = over ? (target / current) * 100 : pct;
-  const overshootPct = over ? ((current - target) / current) * 100 : 0;
 
   return (
-    <div className="space-y-1">
-      <div className="flex justify-between text-xs">
-        <span className="font-medium">{label}</span>
-        <span className="text-muted-foreground">
-          {fmt(current)}<span className="text-muted-foreground/60"> / {fmt(target)} {unit}</span>
-          {over && (
-            <span className="ml-1.5 text-destructive font-medium">+{fmt(overshoot)} over</span>
-          )}
-        </span>
-      </div>
-      <div className="h-2 w-full rounded-full bg-muted relative overflow-hidden">
-        {over ? (
-          <>
-            <div
-              className={`absolute top-0 left-0 h-full ${barColor}`}
-              style={{ width: `${basePct}%`, borderRadius: "9999px 0 0 9999px" }}
-            />
-            <div
-              className="absolute top-0 h-full bg-destructive"
-              style={{ left: `${basePct}%`, width: `${overshootPct}%`, borderRadius: "0 9999px 9999px 0" }}
-            />
-            {/* Separator line at the target position */}
-            <div
-              className="absolute top-0 h-full w-0.5 bg-background/70"
-              style={{ left: `${basePct}%` }}
-            />
-          </>
-        ) : (
-          <div
-            className={`h-full rounded-full transition-all duration-500 ${barColor}`}
-            style={{ width: `${pct}%` }}
+    <div className="flex flex-col items-center gap-1.5">
+      <div className="relative" style={{ width: size, height: size }}>
+        <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
+          {/* Track */}
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={C.track} strokeWidth={sw} />
+          {/* Progress arc */}
+          <circle
+            cx={size / 2} cy={size / 2} r={r}
+            fill="none"
+            stroke={color}
+            strokeWidth={sw}
+            strokeLinecap="round"
+            strokeDasharray={circ}
+            strokeDashoffset={circ * (1 - clamped)}
+            style={{ transition: "stroke-dashoffset 0.5s ease, stroke 0.3s ease" }}
           />
+          {/* Overshoot tick at 12-o'clock when over */}
+          {over && (
+            <circle
+              cx={size / 2} cy={sw / 2}
+              r={sw / 2 - 1}
+              fill={C.red}
+            />
+          )}
+        </svg>
+        {/* Center text */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-xs font-bold leading-none" style={{ color }}>
+            {fmt(current)}
+          </span>
+          <span className="text-[9px] text-muted-foreground leading-none mt-0.5">{unit}</span>
+        </div>
+      </div>
+      <div className="text-center">
+        <p className="text-xs font-medium">{label}</p>
+        <p className="text-[9px] text-muted-foreground">{fmt(target)} {unit}</p>
+        {over && (
+          <p className="text-[9px] font-medium" style={{ color: C.red }}>
+            +{fmt(current - target)} over
+          </p>
         )}
       </div>
     </div>
@@ -135,26 +163,45 @@ export default function MacroProgress({ items, date, userId }: Props) {
   const targets: MacroTargets = calcMacroTargets(tdee, stats.weightLbs, mode);
 
   const current = {
-    kcal: items.reduce((s, i) => s + i.calories, 0),
+    kcal:    items.reduce((s, i) => s + i.calories, 0),
     protein: items.reduce((s, i) => s + i.protein, 0),
-    carbs: items.reduce((s, i) => s + i.carbs, 0),
-    fat: items.reduce((s, i) => s + i.fat, 0),
+    carbs:   items.reduce((s, i) => s + i.carbs, 0),
+    fat:     items.reduce((s, i) => s + i.fat, 0),
   };
+
+  const calProgress     = targets.kcal    > 0 ? current.kcal    / targets.kcal    : 0;
+  const proteinProgress = targets.protein > 0 ? current.protein / targets.protein : 0;
+  const carbProgress    = targets.carbs   > 0 ? current.carbs   / targets.carbs   : 0;
+  const fatProgress     = targets.fat     > 0 ? current.fat     / targets.fat     : 0;
 
   const modeLabel: Record<Mode, string> = { cutting: "Cutting", maintenance: "Maintenance", bulking: "Bulking" };
   const modeColor: Record<Mode, string> = { cutting: "text-blue-500", maintenance: "text-green-500", bulking: "text-orange-500" };
 
   return (
-    <div className="rounded-lg border bg-card p-4 space-y-3">
+    <div className="rounded-lg border bg-card p-4 space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold">Daily Goals</h3>
         <span className={`text-xs font-medium ${modeColor[mode]}`}>{modeLabel[mode]}</span>
       </div>
 
-      <MacroBar label="Calories" current={current.kcal} target={targets.kcal} unit="kcal" accentColor="bg-yellow-500" />
-      <MacroBar label="Protein" current={current.protein} target={targets.protein} unit="g" decimals={1} accentColor="bg-red-400" />
-      <MacroBar label="Carbs" current={current.carbs} target={targets.carbs} unit="g" decimals={1} accentColor="bg-blue-400" />
-      <MacroBar label="Fat" current={current.fat} target={targets.fat} unit="g" decimals={1} accentColor="bg-orange-400" />
+      <div className="flex justify-around items-start">
+        <Ring
+          label="Calories" current={current.kcal} target={targets.kcal} unit="kcal"
+          color={calRingColor(calProgress)} size={96}
+        />
+        <Ring
+          label="Protein" current={current.protein} target={targets.protein} unit="g" decimals={1}
+          color={macroRingColor(proteinProgress, calProgress)}
+        />
+        <Ring
+          label="Carbs" current={current.carbs} target={targets.carbs} unit="g" decimals={1}
+          color={macroRingColor(carbProgress, calProgress)}
+        />
+        <Ring
+          label="Fat" current={current.fat} target={targets.fat} unit="g" decimals={1}
+          color={macroRingColor(fatProgress, calProgress)}
+        />
+      </div>
     </div>
   );
 }
