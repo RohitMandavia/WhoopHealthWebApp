@@ -11,7 +11,10 @@ interface PageProps {
 }
 
 function todayString() {
-  return new Date().toISOString().split("T")[0];
+  // Use New York time as the server-side fallback — better than raw UTC for US users.
+  // The login page always passes an explicit ?date= using the browser's local timezone,
+  // so this fallback is only hit if someone navigates to / directly with no date param.
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date());
 }
 
 function formatDisplayDate(date: string) {

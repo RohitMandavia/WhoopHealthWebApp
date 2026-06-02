@@ -25,7 +25,9 @@ export default function LoginPage() {
     });
 
     if (res.ok) {
-      router.push("/");
+      // Use the browser's local date so the server (which runs UTC) shows the right day
+      const today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD in local timezone
+      router.push(`/?date=${today}`);
     } else {
       setError("Something went wrong. Please try again.");
       setLoading(false);
