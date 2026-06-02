@@ -14,8 +14,9 @@ export default function VitaminToggle({ date, userId, isOwner }: Props) {
 
   useEffect(() => {
     fetch(`/api/vitamins?date=${date}&userId=${userId}`)
-      .then((r) => r.json())
-      .then((d) => setTaken(d.taken ?? false));
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => setTaken(d?.taken ?? false))
+      .catch(() => setTaken(false));
   }, [date, userId]);
 
   async function handleToggle() {

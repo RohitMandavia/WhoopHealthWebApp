@@ -24,13 +24,14 @@ export default function WeightChart({ date, userId, isOwner, currentWeight }: Pr
 
   useEffect(() => {
     fetch(`/api/weight?userId=${userId}`)
-      .then((r) => r.json())
+      .then((r) => r.ok ? r.json() : null)
       .then((d) => {
-        const data: Entry[] = d.entries ?? [];
+        const data: Entry[] = d?.entries ?? [];
         setEntries(data);
         const today = data.find((e) => e.date === date);
         setInput(today ? String(today.weightLbs) : "");
-      });
+      })
+      .catch(() => {});
   }, [date, userId]);
 
   async function handleSave() {
@@ -43,8 +44,9 @@ export default function WeightChart({ date, userId, isOwner, currentWeight }: Pr
       body: JSON.stringify({ date, weightLbs: val }),
     });
     // Refresh entries
-    const d = await fetch(`/api/weight?userId=${userId}`).then((r) => r.json());
-    setEntries(d.entries ?? []);
+    const res = await fetch(`/api/weight?userId=${userId}`);
+    const d = res.ok ? await res.json() : null;
+    setEntries(d?.entries ?? []);
     setSaving(false);
   }
 
