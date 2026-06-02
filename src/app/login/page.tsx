@@ -36,10 +36,15 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4">
-      <div className="w-full max-w-sm space-y-6">
-        <div className="text-center space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Health Tracker</h1>
+    <div className="min-h-screen bg-gradient-to-br from-background via-card to-background flex items-center justify-center px-4">
+      <div className="w-full max-w-sm space-y-8">
+        <div className="text-center space-y-2">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-primary/20 mb-2">
+            <span className="text-2xl">💪</span>
+          </div>
+          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+            Health Tracker
+          </h1>
           <p className="text-sm text-muted-foreground">Enter your first name to get started</p>
         </div>
 
@@ -50,7 +55,7 @@ export default function LoginPage() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             autoFocus
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            className="w-full rounded-md border border-input bg-card px-3 py-2.5 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           />
           {error && <p className="text-sm text-destructive">{error}</p>}
           <Button type="submit" className="w-full" disabled={loading || !name.trim()}>

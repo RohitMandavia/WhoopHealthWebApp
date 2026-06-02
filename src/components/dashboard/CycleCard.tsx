@@ -12,13 +12,15 @@ function Stat({ label, value }: { label: string; value: string | null }) {
 
 export default function CycleCard({ cycle }: { cycle: DailyCycle }) {
   return (
-    <Card>
+    <Card className="border-l-4 border-l-orange-500/60 bg-orange-500/5">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+        <CardTitle className="text-xs font-medium text-orange-400/70 uppercase tracking-widest">
           Day Strain
         </CardTitle>
         {cycle.strain !== null && (
-          <p className="text-4xl font-bold">{cycle.strain.toFixed(1)}</p>
+          <p className="text-5xl font-bold tracking-tight text-orange-400">
+            {cycle.strain.toFixed(1)}
+          </p>
         )}
       </CardHeader>
       <CardContent>

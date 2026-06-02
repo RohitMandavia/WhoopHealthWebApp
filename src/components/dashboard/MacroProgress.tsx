@@ -39,14 +39,15 @@ interface BarProps {
   target: number;
   unit: string;
   decimals?: number;
+  accentColor: string; // Tailwind bg class for the bar's base color
 }
 
-function MacroBar({ label, current, target, unit, decimals = 0 }: BarProps) {
+function MacroBar({ label, current, target, unit, decimals = 0, accentColor }: BarProps) {
   const pct = target > 0 ? Math.min((current / target) * 100, 100) : 0;
   const over = target > 0 && current > target * 1.05;
   const near = target > 0 && current >= target * 0.9 && current <= target * 1.05;
 
-  const barColor = over ? "bg-destructive" : near ? "bg-green-500" : "bg-primary";
+  const barColor = over ? "bg-destructive" : near ? "bg-green-500" : accentColor;
   const fmt = (n: number) => decimals > 0 ? n.toFixed(decimals) : Math.round(n).toLocaleString();
 
   return (
@@ -59,7 +60,7 @@ function MacroBar({ label, current, target, unit, decimals = 0 }: BarProps) {
       </div>
       <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
         <div
-          className={`h-full rounded-full transition-all duration-300 ${barColor}`}
+          className={`h-full rounded-full transition-all duration-500 ${barColor}`}
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -124,10 +125,10 @@ export default function MacroProgress({ items, date, userId }: Props) {
         <span className={`text-xs font-medium ${modeColor[mode]}`}>{modeLabel[mode]}</span>
       </div>
 
-      <MacroBar label="Calories" current={current.kcal} target={targets.kcal} unit="kcal" />
-      <MacroBar label="Protein" current={current.protein} target={targets.protein} unit="g" decimals={1} />
-      <MacroBar label="Carbs" current={current.carbs} target={targets.carbs} unit="g" decimals={1} />
-      <MacroBar label="Fat" current={current.fat} target={targets.fat} unit="g" decimals={1} />
+      <MacroBar label="Calories" current={current.kcal} target={targets.kcal} unit="kcal" accentColor="bg-yellow-500" />
+      <MacroBar label="Protein" current={current.protein} target={targets.protein} unit="g" decimals={1} accentColor="bg-red-400" />
+      <MacroBar label="Carbs" current={current.carbs} target={targets.carbs} unit="g" decimals={1} accentColor="bg-blue-400" />
+      <MacroBar label="Fat" current={current.fat} target={targets.fat} unit="g" decimals={1} accentColor="bg-orange-400" />
     </div>
   );
 }

@@ -3,9 +3,9 @@ import type { Recovery } from "@/types";
 
 function recoveryColor(score: number | null) {
   if (score === null) return "text-muted-foreground";
-  if (score >= 67) return "text-green-600";
-  if (score >= 34) return "text-yellow-500";
-  return "text-red-500";
+  if (score >= 67) return "text-green-400";
+  if (score >= 34) return "text-yellow-400";
+  return "text-red-400";
 }
 
 function Stat({ label, value }: { label: string; value: string | null }) {
@@ -19,13 +19,13 @@ function Stat({ label, value }: { label: string; value: string | null }) {
 
 export default function RecoveryCard({ recovery }: { recovery: Recovery }) {
   return (
-    <Card>
+    <Card className="border-l-4 border-l-green-500/60 bg-green-500/5">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+        <CardTitle className="text-xs font-medium text-green-400/70 uppercase tracking-widest">
           Recovery
         </CardTitle>
         {recovery.score !== null && (
-          <p className={`text-4xl font-bold ${recoveryColor(recovery.score)}`}>
+          <p className={`text-5xl font-bold tracking-tight ${recoveryColor(recovery.score)}`}>
             {recovery.score}%
           </p>
         )}

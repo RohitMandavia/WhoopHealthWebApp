@@ -3,47 +3,36 @@ import { Badge } from "@/components/ui/badge";
 import type { Workout } from "@/types";
 
 function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
 function formatDuration(start: string, end: string) {
-  const mins = Math.round(
-    (new Date(end).getTime() - new Date(start).getTime()) / 60000
-  );
+  const mins = Math.round((new Date(end).getTime() - new Date(start).getTime()) / 60000);
   if (mins < 60) return `${mins}m`;
   return `${Math.floor(mins / 60)}h ${mins % 60}m`;
 }
 
-function strainColor(strain: number | null) {
-  if (strain === null) return "secondary";
-  if (strain < 10) return "secondary";
+function strainVariant(strain: number | null): "default" | "secondary" | "outline" | "destructive" {
+  if (strain === null || strain < 10) return "secondary";
   if (strain < 14) return "outline";
   if (strain < 18) return "default";
   return "destructive";
 }
 
-interface WorkoutCardProps {
-  workout: Workout;
-}
-
-export default function WorkoutCard({ workout }: WorkoutCardProps) {
+export default function WorkoutCard({ workout }: { workout: Workout }) {
   return (
-    <Card>
+    <Card className="border-l-4 border-l-blue-500/60 bg-blue-500/5">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base">{workout.sportName}</CardTitle>
+          <CardTitle className="text-base text-blue-300">{workout.sportName}</CardTitle>
           {workout.strain !== null && (
-            <Badge variant={strainColor(workout.strain) as "default" | "secondary" | "outline" | "destructive"}>
+            <Badge variant={strainVariant(workout.strain)}>
               Strain {workout.strain.toFixed(1)}
             </Badge>
           )}
         </div>
         <p className="text-xs text-muted-foreground">
-          {formatTime(workout.start)} – {formatTime(workout.end)} ·{" "}
-          {formatDuration(workout.start, workout.end)}
+          {formatTime(workout.start)} – {formatTime(workout.end)} · {formatDuration(workout.start, workout.end)}
         </p>
       </CardHeader>
       <CardContent>

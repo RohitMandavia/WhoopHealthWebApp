@@ -18,13 +18,15 @@ function mins(m: number | null) {
 
 export default function SleepCard({ sleep }: { sleep: Sleep }) {
   return (
-    <Card>
+    <Card className="border-l-4 border-l-purple-500/60 bg-purple-500/5">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+        <CardTitle className="text-xs font-medium text-purple-400/70 uppercase tracking-widest">
           Sleep
         </CardTitle>
         {sleep.durationHours !== null && (
-          <p className="text-4xl font-bold">{sleep.durationHours}h</p>
+          <p className="text-5xl font-bold tracking-tight text-purple-400">
+            {sleep.durationHours}h
+          </p>
         )}
       </CardHeader>
       <CardContent>

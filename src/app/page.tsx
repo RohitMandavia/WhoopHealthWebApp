@@ -44,10 +44,10 @@ export default async function Home({ searchParams }: PageProps) {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b bg-card px-6 py-4">
+      <header className="border-b bg-card px-6 py-4 bg-gradient-to-r from-indigo-500/10 via-transparent to-purple-500/10">
         <div className="mx-auto max-w-6xl space-y-3">
           <div className="flex items-center justify-between">
-            <h1 className="text-xl font-semibold tracking-tight">Health Tracker</h1>
+            <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">Health Tracker</h1>
             <DatePicker date={date} />
           </div>
           <UserPicker loggedInUserId={loggedInUserId} currentViewId={viewUserId} date={date} />

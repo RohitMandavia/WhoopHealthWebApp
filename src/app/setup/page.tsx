@@ -68,10 +68,12 @@ export default function SetupPage() {
   );
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4 py-12">
+    <div className="min-h-screen bg-gradient-to-br from-background via-card to-background flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md space-y-8">
-        <div className="text-center space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Set up your profile</h1>
+        <div className="text-center space-y-2">
+          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+            Set up your profile
+          </h1>
           <p className="text-sm text-muted-foreground">We need a few measurements to calculate your targets.</p>
         </div>
 
