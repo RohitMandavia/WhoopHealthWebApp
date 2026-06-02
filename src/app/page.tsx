@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
 import DatePicker from "@/components/dashboard/DatePicker";
 import WhoopSection from "@/components/dashboard/WhoopSection";
 import FoodSection from "@/components/dashboard/FoodSection";
@@ -11,8 +12,6 @@ interface PageProps {
 }
 
 function todayString() {
-  // Shift back 4h so that before-4am counts as the previous day (consistent with workout filter).
-  // Uses New York time as the server-side fallback; login always passes an explicit ?date=.
   const shifted = new Date(Date.now() - 4 * 60 * 60 * 1000);
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(shifted);
 }
@@ -29,9 +28,11 @@ export default async function Home({ searchParams }: PageProps) {
   const cookieStore = await cookies();
   const loggedInUserId = cookieStore.get("userId")?.value;
 
-  if (!loggedInUserId) {
-    redirect("/login");
-  }
+  if (!loggedInUserId) redirect("/login");
+
+  // Redirect new users to setup if they haven't entered body metrics + goal yet
+  const stats = await prisma.userStats.findUnique({ where: { userId: loggedInUserId } });
+  if (!stats?.weightLbs || !stats?.bodyFatPct || !stats?.mode) redirect("/setup");
 
   const params = await searchParams;
   const date = params.date ?? todayString();
@@ -49,15 +50,11 @@ export default async function Home({ searchParams }: PageProps) {
             <h1 className="text-xl font-semibold tracking-tight">Health Tracker</h1>
             <DatePicker date={date} />
           </div>
-          <UserPicker
-            loggedInUserId={loggedInUserId}
-            currentViewId={viewUserId}
-            date={date}
-          />
+          <UserPicker loggedInUserId={loggedInUserId} currentViewId={viewUserId} date={date} />
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-6 py-8 space-y-2">
+      <main className="mx-auto max-w-6xl px-6 py-8 space-y-4">
         {connectedWhoop && (
           <div className="rounded-md bg-green-50 border border-green-200 px-4 py-2 text-sm text-green-800">
             Whoop connected successfully.
@@ -74,24 +71,24 @@ export default async function Home({ searchParams }: PageProps) {
           </div>
         )}
 
-        <p className="text-muted-foreground text-sm pb-2">
+        <p className="text-muted-foreground text-sm">
           {formatDisplayDate(date)}
           {!isOwner && (
-            <span className="ml-2 text-xs bg-muted rounded-full px-2 py-0.5">viewing friend&apos;s data</span>
+            <span className="ml-2 text-xs bg-muted rounded-full px-2 py-0.5">
+              viewing {/* server doesn't have the name here; UserPicker shows it */}
+            </span>
           )}
         </p>
 
-        {isOwner && <BodyMetrics date={date} userId={loggedInUserId} />}
+        {/* Body metrics shown for everyone — read-only when viewing a friend */}
+        <BodyMetrics date={date} userId={viewUserId} isOwner={isOwner} />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <section>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold">Activity</h2>
               {isOwner && (
-                <a
-                  href="/api/whoop/auth"
-                  className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
-                >
+                <a href="/api/whoop/auth" className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2">
                   Reconnect Whoop
                 </a>
               )}

@@ -67,9 +67,10 @@ function inchesToFtIn(totalIn: number) {
 interface BodyMetricsProps {
   date: string;
   userId: string;
+  isOwner?: boolean;
 }
 
-export default function BodyMetrics({ date, userId }: BodyMetricsProps) {
+export default function BodyMetrics({ date, userId, isOwner = true }: BodyMetricsProps) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [whoop, setWhoop] = useState<WhoopDaily | null>(null);
   const [steps, setSteps] = useState<number | null>(null);
@@ -177,7 +178,7 @@ export default function BodyMetrics({ date, userId }: BodyMetricsProps) {
     <div className="rounded-lg border bg-card p-4">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-semibold">Body Metrics</h2>
-        {!editing && (
+        {!editing && isOwner && (
           <button
             onClick={openEdit}
             className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
@@ -267,50 +268,62 @@ export default function BodyMetrics({ date, userId }: BodyMetricsProps) {
             <Metric label="Body Fat" value={stats?.bodyFatPct != null ? `${stats.bodyFatPct}%` : "—"} />
           </div>
 
-          {/* Mode toggle */}
+          {/* Goal — interactive toggle for owner, static badge for friend */}
           <div className="pt-2 border-t">
             <p className="text-xs text-muted-foreground mb-1.5">Goal</p>
-            <div className="flex rounded-md border border-input overflow-hidden w-fit text-xs font-medium">
-              {(["cutting", "maintenance", "bulking"] as Mode[]).map((m) => {
-                const active = stats?.mode === m;
-                const colors = {
-                  cutting: active ? "bg-blue-500 text-white" : "text-muted-foreground hover:text-foreground",
-                  maintenance: active ? "bg-green-500 text-white" : "text-muted-foreground hover:text-foreground",
-                  bulking: active ? "bg-orange-500 text-white" : "text-muted-foreground hover:text-foreground",
-                };
-                return (
-                  <button
-                    key={m}
-                    onClick={() => handleSetMode(m)}
-                    className={`px-3 py-1.5 capitalize transition-colors ${colors[m]} border-r border-input last:border-r-0`}
-                  >
-                    {m}
-                  </button>
-                );
-              })}
-            </div>
+            {isOwner ? (
+              <div className="flex rounded-md border border-input overflow-hidden w-fit text-xs font-medium">
+                {(["cutting", "maintenance", "bulking"] as Mode[]).map((m) => {
+                  const active = stats?.mode === m;
+                  const colors = {
+                    cutting:     active ? "bg-blue-500 text-white"    : "text-muted-foreground hover:text-foreground",
+                    maintenance: active ? "bg-green-500 text-white"   : "text-muted-foreground hover:text-foreground",
+                    bulking:     active ? "bg-orange-500 text-white"  : "text-muted-foreground hover:text-foreground",
+                  };
+                  return (
+                    <button
+                      key={m}
+                      onClick={() => handleSetMode(m)}
+                      className={`px-3 py-1.5 capitalize transition-colors ${colors[m]} border-r border-input last:border-r-0`}
+                    >
+                      {m}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <span className={`text-xs font-medium capitalize ${
+                stats?.mode === "cutting" ? "text-blue-500" :
+                stats?.mode === "bulking" ? "text-orange-500" : "text-green-500"
+              }`}>
+                {stats?.mode ?? "—"}
+              </span>
+            )}
           </div>
 
           {/* Steps + TDEE row */}
           <div className="pt-2 border-t grid grid-cols-2 gap-4 items-start">
-            {/* Step count — manual entry, date-specific */}
             <div>
               <p className="text-xs text-muted-foreground mb-1">Steps today</p>
-              <div className="flex items-center gap-1.5">
-                <input
-                  type="number"
-                  placeholder="10000"
-                  value={stepInput}
-                  onChange={(e) => setStepInput(e.target.value)}
-                  onBlur={handleSaveSteps}
-                  onKeyDown={(e) => { if (e.key === "Enter") handleSaveSteps(); }}
-                  disabled={savingSteps}
-                  className="w-28 rounded border border-input bg-background px-2 py-1 text-sm"
-                />
-                {steps != null && (
-                  <span className="text-xs text-muted-foreground">{steps.toLocaleString()}</span>
-                )}
-              </div>
+              {isOwner ? (
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="number"
+                    placeholder="10000"
+                    value={stepInput}
+                    onChange={(e) => setStepInput(e.target.value)}
+                    onBlur={handleSaveSteps}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleSaveSteps(); }}
+                    disabled={savingSteps}
+                    className="w-28 rounded border border-input bg-background px-2 py-1 text-sm"
+                  />
+                  {steps != null && (
+                    <span className="text-xs text-muted-foreground">{steps.toLocaleString()}</span>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm font-medium">{steps != null ? steps.toLocaleString() : "—"}</p>
+              )}
             </div>
 
             {/* TDEE */}

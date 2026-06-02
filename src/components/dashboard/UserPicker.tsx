@@ -14,9 +14,14 @@ interface UserPickerProps {
   date: string;
 }
 
+const ADMIN_NAME = "Rohit";
+
 export default function UserPicker({ loggedInUserId, currentViewId, date }: UserPickerProps) {
   const [users, setUsers] = useState<User[]>([]);
   const router = useRouter();
+
+  const me = users.find((u) => u.id === loggedInUserId);
+  const isAdmin = me?.name === ADMIN_NAME;
 
   useEffect(() => {
     fetch("/api/users")
@@ -35,6 +40,16 @@ export default function UserPicker({ loggedInUserId, currentViewId, date }: User
     router.push(`/?${params}`);
   }
 
+  async function handleDelete(user: User) {
+    if (!confirm(`Delete ${user.name} and all their data? This cannot be undone.`)) return;
+    await fetch(`/api/users/${user.id}`, { method: "DELETE" });
+    setUsers((prev) => prev.filter((u) => u.id !== user.id));
+    // If we were viewing the deleted user, go back to own dashboard
+    if (currentViewId === user.id) {
+      router.push(`/?date=${date}`);
+    }
+  }
+
   if (users.length === 0) return null;
 
   return (
@@ -43,18 +58,28 @@ export default function UserPicker({ loggedInUserId, currentViewId, date }: User
         const isActive = u.id === currentViewId;
         const isMe = u.id === loggedInUserId;
         return (
-          <button
-            key={u.id}
-            onClick={() => handleSelectUser(u.id)}
-            className={[
-              "rounded-full px-3 py-1 text-sm font-medium transition-colors",
-              isActive
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-muted/80",
-            ].join(" ")}
-          >
-            {u.name}{isMe ? " (you)" : ""}
-          </button>
+          <div key={u.id} className="flex items-center gap-1">
+            <button
+              onClick={() => handleSelectUser(u.id)}
+              className={[
+                "rounded-full px-3 py-1 text-sm font-medium transition-colors",
+                isActive
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80",
+              ].join(" ")}
+            >
+              {u.name}{isMe ? " (you)" : ""}
+            </button>
+            {isAdmin && !isMe && (
+              <button
+                onClick={() => handleDelete(u)}
+                className="text-xs text-destructive hover:opacity-70 leading-none"
+                title={`Delete ${u.name}`}
+              >
+                ✕
+              </button>
+            )}
+          </div>
         );
       })}
       <button

@@ -89,17 +89,17 @@ export default function FoodSection({ date, userId, isOwner }: FoodSectionProps)
 
   return (
     <div className="space-y-4">
-      {isOwner && (
-        <div className="space-y-2">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Quick Add</p>
-          <PresetButtons
-            presets={presets}
-            currentItems={allItems}
-            onItemsUpdated={handleItemsUpdated}
-            onManage={() => setShowManager((v) => !v)}
-          />
-        </div>
-      )}
+      <div className="space-y-2">
+        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          {isOwner ? "Quick Add" : "Presets"}
+        </p>
+        <PresetButtons
+          presets={presets}
+          currentItems={allItems}
+          onItemsUpdated={isOwner ? handleItemsUpdated : undefined}
+          onManage={isOwner ? () => setShowManager((v) => !v) : undefined}
+        />
+      </div>
 
       {isOwner && showManager && (
         <PresetManager
