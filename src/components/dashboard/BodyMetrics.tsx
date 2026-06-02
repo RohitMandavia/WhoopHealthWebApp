@@ -91,12 +91,12 @@ export default function BodyMetrics({ date, userId, isOwner = true }: BodyMetric
   }
 
   useEffect(() => {
-    fetch("/api/user/stats")
+    fetch(`/api/user/stats?userId=${userId}`)
       .then((r) => r.json())
       .then((d) => {
         setStats(d.stats ?? { weightLbs: null, heightIn: null, age: null, bodyFatPct: null });
       });
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;

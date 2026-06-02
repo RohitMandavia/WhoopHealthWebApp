@@ -75,7 +75,7 @@ export default function MacroProgress({ items, date, userId }: Props) {
 
   useEffect(() => {
     function refresh() {
-      fetch("/api/user/stats")
+      fetch(`/api/user/stats?userId=${userId}`)
         .then((r) => r.json())
         .then((d) => setStats(d.stats ?? null));
 

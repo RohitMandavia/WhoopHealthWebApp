@@ -3,9 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUserId } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
-  const userId = getCurrentUserId(req);
-  if (!userId) return NextResponse.json({ error: "not_logged_in" }, { status: 401 });
+  const callerId = getCurrentUserId(req);
+  if (!callerId) return NextResponse.json({ error: "not_logged_in" }, { status: 401 });
 
+  // Allow viewing another user's stats (for friend view) via ?userId=
+  const userId = req.nextUrl.searchParams.get("userId") ?? callerId;
   const stats = await prisma.userStats.findUnique({ where: { userId } });
   return NextResponse.json({ stats });
 }
