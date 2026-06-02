@@ -23,7 +23,7 @@ export default function DatePicker({ date }: DatePickerProps) {
         type="date"
         value={date}
         onChange={handleChange}
-        className="rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        className="rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:opacity-60"
       />
     </div>
   );
