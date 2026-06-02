@@ -56,15 +56,6 @@ function calRingColor(progress: number): string {
   return C.indigo;
 }
 
-// Blend two hex colors by fraction t ∈ [0, 1]
-function blendHex(c1: string, c2: string, t: number): string {
-  const p = (c: string, s: number) => parseInt(c.slice(s, s + 2), 16);
-  const lerp = (a: number, b: number) => Math.round(a + (b - a) * t);
-  return `rgb(${lerp(p(c1,1),p(c2,1))},${lerp(p(c1,3),p(c2,3))},${lerp(p(c1,5),p(c2,5))})`;
-}
-
-const GRAD_SEGS = 12; // number of arc segments for gradient effect
-
 interface RingProps {
   label: string;
   sublabel?: string;
@@ -72,82 +63,38 @@ interface RingProps {
   target: number;
   unit: string;
   decimals?: number;
-  color: string;       // hex color for the base arc
-  baseHex: string;     // hex of the base color (for gradient start)
+  color: string;
   size: number;
   strokeWidth?: number;
 }
 
-function Ring({ label, sublabel, current, target, unit, decimals = 0, color, baseHex, size, strokeWidth = 8 }: RingProps) {
+function Ring({ label, sublabel, current, target, unit, decimals = 0, color, size, strokeWidth = 8 }: RingProps) {
   const cx = size / 2;
   const cy = size / 2;
   const r = (size - strokeWidth) / 2;
   const circ = 2 * Math.PI * r;
   const progress = target > 0 ? current / target : 0;
-  const over = progress > 1.0;
-  // Cap the visible overshoot at one full revolution so it doesn't wrap twice
-  const overshootFrac = over ? Math.min(progress - 1, 1) : 0;
+  const over = progress > 1.05;
   const fmt = (n: number) => decimals > 0 ? n.toFixed(decimals) : Math.round(n).toLocaleString();
-
-  // Main arc segments: always gradient from baseHex → state color (color prop)
-  const mainProgress = Math.min(progress, 1);
-  const mainSegs = mainProgress > 0 ? Array.from({ length: GRAD_SEGS }, (_, i) => {
-    const segStart = (i / GRAD_SEGS) * mainProgress;
-    const segEnd   = Math.min(((i + 1) / GRAD_SEGS) * mainProgress, mainProgress);
-    const segLen   = (segEnd - segStart) * circ;
-    if (segLen <= 0) return null;
-    const t = GRAD_SEGS > 1 ? i / (GRAD_SEGS - 1) : 1;
-    return { segLen, dashOffset: circ - segStart * circ, segColor: blendHex(baseHex, color, t), i };
-  }).filter(Boolean) : [];
-
-  // Overshoot segments: state color → red, wrapping past 12 o'clock
-  const overshootSegs = over ? Array.from({ length: GRAD_SEGS }, (_, i) => {
-    const segStart = (i / GRAD_SEGS) * overshootFrac;
-    const segEnd   = Math.min(((i + 1) / GRAD_SEGS) * overshootFrac, overshootFrac);
-    const segLen   = (segEnd - segStart) * circ;
-    if (segLen <= 0) return null;
-    const t = GRAD_SEGS > 1 ? i / (GRAD_SEGS - 1) : 1;
-    return { segLen, dashOffset: circ - segStart * circ, segColor: blendHex(color, "#f87171", t), i };
-  }).filter(Boolean) : [];
 
   return (
     <div className="flex flex-col items-center gap-1">
       <div className="relative" style={{ width: size, height: size }}>
         <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
-          {/* Track */}
           <circle cx={cx} cy={cy} r={r} fill="none" stroke={C.track} strokeWidth={strokeWidth} />
-
-          {/* Main gradient arc — always shown */}
-          {mainSegs.map((seg) => seg && (
-            <circle key={`m${seg.i}`} cx={cx} cy={cy} r={r} fill="none"
-              stroke={seg.segColor} strokeWidth={strokeWidth}
-              strokeLinecap="butt"
-              strokeDasharray={`${seg.segLen} ${circ - seg.segLen}`}
-              strokeDashoffset={seg.dashOffset}
+          <circle cx={cx} cy={cy} r={r} fill="none" stroke={color} strokeWidth={strokeWidth}
+            strokeLinecap="round"
+            strokeDasharray={circ}
+            strokeDashoffset={circ * (1 - Math.min(progress, 1))}
+            style={{ transition: "stroke-dashoffset 0.5s ease, stroke 0.3s ease" }}
+          />
+          {over && (
+            <circle cx={cx} cy={cy} r={r} fill="none" stroke={C.red} strokeWidth={strokeWidth}
+              strokeLinecap="round"
+              strokeDasharray={circ}
+              strokeDashoffset={circ * (1 - Math.min(progress - 1, 1))}
             />
-          ))}
-          {/* Round cap at the tip */}
-          {mainProgress > 0 && (() => {
-            const tipAngle = mainProgress * 2 * Math.PI - Math.PI / 2;
-            return <circle cx={cx + r * Math.cos(tipAngle)} cy={cy + r * Math.sin(tipAngle)}
-              r={strokeWidth / 2} fill={color} />;
-          })()}
-
-          {/* Overshoot arc — wraps past 12 o'clock when over */}
-          {overshootSegs.map((seg) => seg && (
-            <circle key={`o${seg.i}`} cx={cx} cy={cy} r={r} fill="none"
-              stroke={seg.segColor} strokeWidth={strokeWidth}
-              strokeLinecap="butt"
-              strokeDasharray={`${seg.segLen} ${circ - seg.segLen}`}
-              strokeDashoffset={seg.dashOffset}
-            />
-          ))}
-          {/* Round cap at overshoot tip */}
-          {over && overshootFrac > 0 && (() => {
-            const tipAngle = overshootFrac * 2 * Math.PI - Math.PI / 2;
-            return <circle cx={cx + r * Math.cos(tipAngle)} cy={cy + r * Math.sin(tipAngle)}
-              r={strokeWidth / 2} fill="#f87171" />;
-          })()}
+          )}
         </svg>
 
         {/* Center text */}
@@ -301,7 +248,7 @@ export default function MacroProgress({ items, date, userId, isOwner }: Props) {
           label="Calories"
           sublabel={`${targets.kcal.toLocaleString()} kcal goal`}
           current={current.kcal} target={targets.kcal} unit="kcal"
-          color={calRingColor(calProgress)} baseHex="#818cf8"
+          color={calRingColor(calProgress)}
           size={148} strokeWidth={12}
         />
       </div>
@@ -310,17 +257,17 @@ export default function MacroProgress({ items, date, userId, isOwner }: Props) {
       <div className="flex justify-around">
         <Ring
           label="Protein" current={current.protein} target={targets.protein} unit="g" decimals={1}
-          color={macroRingColor(proteinProgress, calProgress)} baseHex="#f87171"
+          color={macroRingColor(proteinProgress, calProgress)}
           size={82}
         />
         <Ring
           label="Carbs" current={current.carbs} target={targets.carbs} unit="g" decimals={1}
-          color={macroRingColor(carbProgress, calProgress)} baseHex="#60a5fa"
+          color={macroRingColor(carbProgress, calProgress)}
           size={82}
         />
         <Ring
           label="Fat" current={current.fat} target={targets.fat} unit="g" decimals={1}
-          color={macroRingColor(fatProgress, calProgress)} baseHex="#fb923c"
+          color={macroRingColor(fatProgress, calProgress)}
           size={82}
         />
       </div>
