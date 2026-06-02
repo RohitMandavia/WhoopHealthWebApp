@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import FoodChat from "./FoodChat";
 import FoodTable from "./FoodTable";
+import MacroProgress from "./MacroProgress";
 import PresetButtons from "./PresetButtons";
 import PresetManager from "./PresetManager";
 import type { FoodItem, FoodLog, FoodPreset } from "@/types";
@@ -125,6 +126,8 @@ export default function FoodSection({ date, userId, isOwner }: FoodSectionProps)
           </Button>
         </div>
       )}
+
+      <MacroProgress items={allItems} date={date} />
 
       <FoodTable
         logs={logs}

@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { WhoopDaily } from "@/types";
+import type { Mode } from "@/lib/macros";
 
 interface Stats {
   weightLbs: number | null;
   heightIn: number | null;
   age: number | null;
   bodyFatPct: number | null;
+  mode: string | null;
 }
 
 interface TDEEResult {
@@ -76,6 +78,15 @@ export default function BodyMetrics({ date, userId }: BodyMetricsProps) {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ weightLbs: "", ft: "", inches: "", age: "", bodyFatPct: "" });
   const [saving, setSaving] = useState(false);
+
+  async function handleSetMode(mode: Mode) {
+    setStats((s) => s ? { ...s, mode } : s);
+    await fetch("/api/user/stats", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode }),
+    });
+  }
 
   useEffect(() => {
     fetch("/api/user/stats")
@@ -252,6 +263,30 @@ export default function BodyMetrics({ date, userId }: BodyMetricsProps) {
             <Metric label="Height" value={heightDisplay} />
             <Metric label="Age" value={stats?.age != null ? `${stats.age} yrs` : "—"} />
             <Metric label="Body Fat" value={stats?.bodyFatPct != null ? `${stats.bodyFatPct}%` : "—"} />
+          </div>
+
+          {/* Mode toggle */}
+          <div className="pt-2 border-t">
+            <p className="text-xs text-muted-foreground mb-1.5">Goal</p>
+            <div className="flex rounded-md border border-input overflow-hidden w-fit text-xs font-medium">
+              {(["cutting", "maintenance", "bulking"] as Mode[]).map((m) => {
+                const active = stats?.mode === m;
+                const colors = {
+                  cutting: active ? "bg-blue-500 text-white" : "text-muted-foreground hover:text-foreground",
+                  maintenance: active ? "bg-green-500 text-white" : "text-muted-foreground hover:text-foreground",
+                  bulking: active ? "bg-orange-500 text-white" : "text-muted-foreground hover:text-foreground",
+                };
+                return (
+                  <button
+                    key={m}
+                    onClick={() => handleSetMode(m)}
+                    className={`px-3 py-1.5 capitalize transition-colors ${colors[m]} border-r border-input last:border-r-0`}
+                  >
+                    {m}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Steps + TDEE row */}

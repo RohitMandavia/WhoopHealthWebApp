@@ -27,6 +27,7 @@ model UserStats {
   heightIn    Float?   // stored as total inches; displayed as ft + in
   age         Int?
   bodyFatPct  Float?
+  mode        String?  // "cutting" | "maintenance" | "bulking"
   updatedAt   DateTime @updatedAt
   createdAt   DateTime @default(now())
 }
