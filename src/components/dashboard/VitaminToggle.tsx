@@ -75,7 +75,7 @@ export default function VitaminToggle({ date, userId, isOwner }: Props) {
           ].join(" ")}
         >
           <span>{taken ? "✓" : "○"}</span>
-          {taken ? "Vitamins taken" : "Take vitamins"}
+          {taken ? "Vitamins taken" : "Took vitamins"}
         </button>
 
         {celebrating && PARTICLES.map((emoji, i) => (
