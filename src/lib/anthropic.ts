@@ -39,7 +39,7 @@ Respond with only valid JSON, no explanation.`;
 
 export async function analyzeFoodEntry(input: string): Promise<FoodItem[]> {
   const response = await client.messages.create({
-    model: "claude-haiku-4-5-20251001",
+    model: "claude-sonnet-4-6",
     max_tokens: 1024,
     system: PARSE_SYSTEM,
     messages: [
