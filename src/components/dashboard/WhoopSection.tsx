@@ -19,6 +19,14 @@ export default function WhoopSection({ date, userId, isOwner }: WhoopSectionProp
   const [status, setStatus] = useState<"loading" | "ready" | "not_connected" | "error">("loading");
 
   useEffect(() => {
+    // Don't fetch Whoop data for future dates — the API returns stale past data otherwise
+    const localToday = new Date(Date.now() - 4 * 60 * 60 * 1000).toLocaleDateString("en-CA");
+    if (date > localToday) {
+      setData(null);
+      setStatus("ready");
+      return;
+    }
+
     setStatus("loading");
     setData(null);
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
