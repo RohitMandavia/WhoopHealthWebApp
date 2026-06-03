@@ -42,28 +42,38 @@ export default function FoodSection({ date, userId, isOwner }: FoodSectionProps)
       .then((data) => setPresets(data.presets ?? []));
   }, [userId]);
 
+  function addQuantities(q1: string, q2: string): string {
+    // Try to parse "NUMBER UNIT" — e.g. "2 tablespoons", "1 large", "100"
+    const re = /^([\d.]+)\s*(.*)$/;
+    const m1 = q1.trim().match(re);
+    const m2 = q2.trim().match(re);
+    if (m1 && m2 && m1[2].toLowerCase() === m2[2].toLowerCase()) {
+      const total = parseFloat(m1[1]) + parseFloat(m2[1]);
+      const fmt = total % 1 === 0 ? String(total) : total.toFixed(1);
+      return m1[2] ? `${fmt} ${m1[2]}` : fmt;
+    }
+    return q1; // units differ or unparseable — keep the first
+  }
+
   function mergeItems(items: FoodItem[]): FoodItem[] {
-    const seen = new Map<string, FoodItem & { count: number }>();
+    const seen = new Map<string, FoodItem>();
     for (const item of items) {
       const key = item.name.toLowerCase().trim();
       if (seen.has(key)) {
         const ex = seen.get(key)!;
         seen.set(key, {
           ...ex,
-          count: ex.count + 1,
           calories: ex.calories + item.calories,
           protein:  +(ex.protein  + item.protein).toFixed(1),
           carbs:    +(ex.carbs    + item.carbs).toFixed(1),
           fat:      +(ex.fat      + item.fat).toFixed(1),
-          quantity: ex.quantity === item.quantity
-            ? `${ex.count + 1}× ${item.quantity}`
-            : ex.quantity,
+          quantity: addQuantities(ex.quantity, item.quantity),
         });
       } else {
-        seen.set(key, { ...item, count: 1 });
+        seen.set(key, { ...item });
       }
     }
-    return Array.from(seen.values()).map(({ count: _c, ...item }) => item);
+    return Array.from(seen.values());
   }
 
   async function saveItems(items: FoodItem[]) {
