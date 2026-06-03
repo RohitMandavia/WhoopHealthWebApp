@@ -30,8 +30,19 @@ const FAT_GRAMS: Record<Mode, number> = {
 
 export function calcMacroTargets(tdee: number, weightLbs: number, mode: Mode, goalRate = 1): MacroTargets {
   const kcal = Math.round(tdee + calorieDelta(mode, goalRate));
-  const protein = Math.round(weightLbs * PROTEIN_PER_LB[mode]);
   const fat = FAT_GRAMS[mode];
-  const carbs = Math.max(0, Math.round((kcal - protein * 4 - fat * 9) / 4));
+  const remainingKcal = kcal - fat * 9;
+
+  let protein = Math.round(weightLbs * PROTEIN_PER_LB[mode]);
+  let carbs = Math.max(0, Math.round((remainingKcal - protein * 4) / 4));
+
+  // Safety: protein should never exceed carbs (e.g. low-activity days).
+  // When it would, split the remaining calories equally so protein === carbs.
+  if (protein > carbs && remainingKcal > 0) {
+    const equal = Math.max(0, Math.round(remainingKcal / 8));
+    protein = equal;
+    carbs = equal;
+  }
+
   return { kcal, protein, fat, carbs };
 }
