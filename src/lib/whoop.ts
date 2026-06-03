@@ -172,3 +172,46 @@ export async function fetchWhoopDaily(date: string, userId: string, tz = "UTC"):
 
   return { cycle, recovery, sleep, workouts };
 }
+
+export async function fetchSleepHistory(
+  userId: string,
+  tz: string,
+  days = 7
+): Promise<{ date: string; sleepHours: number | null }[]> {
+  // Get token ONCE — avoids parallel refresh races when called alongside fetchWhoopDaily
+  const accessToken = await getValidAccessToken(userId);
+
+  // Build the list of target dates (4am reset)
+  const now = new Date(Date.now() - 4 * 60 * 60 * 1000);
+  const dates: string[] = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    dates.push(d.toLocaleDateString("en-CA"));
+  }
+
+  // One API call covering the full window
+  const windowStart = new Date(dates[0] + "T00:00:00.000Z").toISOString();
+  const windowEnd   = new Date(now.getTime() + 36 * 60 * 60 * 1000).toISOString();
+
+  const data = await whoopGet(
+    "/activity/sleep",
+    { start: windowStart, end: windowEnd, limit: String(days + 3) },
+    accessToken
+  );
+
+  // Map each record to its local date using the wake-up time (end) with 4h reset
+  const recordsByDate = new Map<string, number>();
+  for (const r of (data.records ?? []) as Record<string, unknown>[]) {
+    if (!r.end) continue;
+    const date = localDate(r.end as string, tz);
+    if (!dates.includes(date)) continue;
+    const stages = (r.score as Record<string, unknown> | null)?.stage_summary as Record<string, number> | null ?? {};
+    const totalMs = stages.total_in_bed_time_milli ?? 0;
+    if (totalMs > 0) {
+      recordsByDate.set(date, Math.round((totalMs / 3600000) * 10) / 10);
+    }
+  }
+
+  return dates.map((date) => ({ date, sleepHours: recordsByDate.get(date) ?? null }));
+}
