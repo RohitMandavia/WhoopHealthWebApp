@@ -78,6 +78,7 @@ export default function BodyMetrics({ date, userId, isOwner = true }: BodyMetric
   const [stats, setStats] = useState<Stats | null>(null);
   const [whoop, setWhoop] = useState<WhoopDaily | null>(null);
   const [steps, setSteps] = useState<number | null>(null);
+  const [sleepDebt, setSleepDebt] = useState<number | null>(null);
   const [stepInput, setStepInput] = useState("");
   const [savingSteps, setSavingSteps] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -110,6 +111,12 @@ export default function BodyMetrics({ date, userId, isOwner = true }: BodyMetric
       .then((d) => {
         setStats(d.stats ?? { weightLbs: null, heightIn: null, age: null, bodyFatPct: null });
       });
+
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    fetch(`/api/whoop/sleep-history?userId=${userId}&tz=${encodeURIComponent(tz)}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d && !d.error) setSleepDebt(d.debtHours ?? 0); })
+      .catch(() => {});
   }, [userId]);
 
   useEffect(() => {
@@ -320,7 +327,17 @@ export default function BodyMetrics({ date, userId, isOwner = true }: BodyMetric
             {stats?.targetWeightLbs != null && (
               <Metric label="Target" value={`${stats.targetWeightLbs} lbs`} />
             )}
-            <Metric label="Sleep Goal" value={`${stats?.sleepGoalHours ?? 8}h`} />
+            <div>
+              <p className="text-xs text-muted-foreground">Sleep Goal</p>
+              <p className="text-sm font-medium mt-0.5">{stats?.sleepGoalHours ?? 8}h</p>
+              {sleepDebt !== null && (
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {sleepDebt > 0
+                    ? `${Math.min(Math.round((( stats?.sleepGoalHours ?? 8) + sleepDebt) * 10) / 10, 10)}h tonight`
+                    : "caught up"}
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Goal — interactive toggle for owner, static badge for friend */}

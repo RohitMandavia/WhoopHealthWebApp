@@ -7,7 +7,6 @@ import RecoveryCard from "./RecoveryCard";
 import SleepCard from "./SleepCard";
 import CycleCard from "./CycleCard";
 import type { WhoopDaily } from "@/types";
-import SleepDebtCard from "./SleepDebtCard";
 
 interface WhoopSectionProps {
   date: string;
@@ -80,17 +79,15 @@ export default function WhoopSection({ date, userId, isOwner }: WhoopSectionProp
     );
   }
 
-  // Render the sleep debt card (rolling 7-day) whenever Whoop is connected,
-  // even if there's no data for the selected day
+  if (!data) return null;
+
   return (
     <div className="space-y-3">
-      {data?.recovery && <RecoveryCard recovery={data.recovery} />}
-      {data?.cycle && <CycleCard cycle={data.cycle} />}
-      {data?.sleep && <SleepCard sleep={data.sleep} />}
+      {data.recovery && <RecoveryCard recovery={data.recovery} />}
+      {data.cycle && <CycleCard cycle={data.cycle} />}
+      {data.sleep && <SleepCard sleep={data.sleep} />}
 
-      <SleepDebtCard userId={userId} />
-
-      {data?.workouts && data.workouts.length > 0 && (
+      {data.workouts.length > 0 && (
         <div className="space-y-3">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide pt-1">
             Workouts
@@ -101,7 +98,7 @@ export default function WhoopSection({ date, userId, isOwner }: WhoopSectionProp
         </div>
       )}
 
-      {data && !data.recovery && !data.cycle && !data.sleep && data.workouts.length === 0 && (
+      {!data.recovery && !data.cycle && !data.sleep && data.workouts.length === 0 && (
         <p className="text-sm text-muted-foreground">No data recorded for this day.</p>
       )}
     </div>
