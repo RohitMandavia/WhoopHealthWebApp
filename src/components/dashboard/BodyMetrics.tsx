@@ -12,6 +12,8 @@ interface Stats {
   age: number | null;
   bodyFatPct: number | null;
   mode: string | null;
+  goalRate: number | null;
+  targetWeightLbs: number | null;
 }
 
 interface TDEEResult {
@@ -78,7 +80,7 @@ export default function BodyMetrics({ date, userId, isOwner = true }: BodyMetric
   const [stepInput, setStepInput] = useState("");
   const [savingSteps, setSavingSteps] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ weightLbs: "", ft: "", inches: "", age: "", bodyFatPct: "" });
+  const [form, setForm] = useState({ weightLbs: "", ft: "", inches: "", age: "", bodyFatPct: "", targetWeightLbs: "" });
   const [saving, setSaving] = useState(false);
 
   async function handleSetMode(mode: Mode) {
@@ -87,6 +89,16 @@ export default function BodyMetrics({ date, userId, isOwner = true }: BodyMetric
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ mode }),
+    });
+    window.dispatchEvent(new CustomEvent("stats-updated"));
+  }
+
+  async function handleSetGoalRate(goalRate: number) {
+    setStats((s) => s ? { ...s, goalRate } : s);
+    await fetch("/api/user/stats", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ goalRate }),
     });
     window.dispatchEvent(new CustomEvent("stats-updated"));
   }
@@ -140,6 +152,7 @@ export default function BodyMetrics({ date, userId, isOwner = true }: BodyMetric
       inches: inches !== "" ? String(inches) : "",
       age: stats.age != null ? String(stats.age) : "",
       bodyFatPct: stats.bodyFatPct != null ? String(stats.bodyFatPct) : "",
+      targetWeightLbs: stats.targetWeightLbs != null ? String(stats.targetWeightLbs) : "",
     });
     setEditing(true);
   }
@@ -155,6 +168,7 @@ export default function BodyMetrics({ date, userId, isOwner = true }: BodyMetric
       heightIn,
       age: form.age ? Number(form.age) : null,
       bodyFatPct: form.bodyFatPct ? Number(form.bodyFatPct) : null,
+      targetWeightLbs: form.targetWeightLbs ? Number(form.targetWeightLbs) : null,
     };
 
     const res = await fetch("/api/user/stats", {
@@ -251,6 +265,18 @@ export default function BodyMetrics({ date, userId, isOwner = true }: BodyMetric
             </label>
           </div>
 
+          <label className="space-y-1">
+            <span className="text-xs text-muted-foreground">Target Weight (lbs)</span>
+            <input
+              type="number"
+              step="0.1"
+              placeholder="155"
+              value={form.targetWeightLbs}
+              onChange={(e) => setForm((f) => ({ ...f, targetWeightLbs: e.target.value }))}
+              className="w-full rounded border border-input bg-background px-2 py-1.5 text-sm"
+            />
+          </label>
+
           <div className="flex gap-2">
             <Button size="sm" className="h-7 text-xs" onClick={handleSave} disabled={saving}>
               {saving ? "Saving…" : "Save"}
@@ -268,6 +294,9 @@ export default function BodyMetrics({ date, userId, isOwner = true }: BodyMetric
             <Metric label="Height" value={heightDisplay} />
             <Metric label="Age" value={stats?.age != null ? `${stats.age} yrs` : "—"} />
             <Metric label="Body Fat" value={stats?.bodyFatPct != null ? `${stats.bodyFatPct}%` : "—"} />
+            {stats?.targetWeightLbs != null && (
+              <Metric label="Target" value={`${stats.targetWeightLbs} lbs`} />
+            )}
           </div>
 
           {/* Goal — interactive toggle for owner, static badge for friend */}
@@ -300,6 +329,37 @@ export default function BodyMetrics({ date, userId, isOwner = true }: BodyMetric
               }`}>
                 {stats?.mode ?? "—"}
               </span>
+            )}
+
+            {/* Goal rate — only for cutting/bulking */}
+            {(stats?.mode === "cutting" || stats?.mode === "bulking") && (
+              <div className="mt-2">
+                <p className="text-xs text-muted-foreground mb-1.5">
+                  Rate ({stats.mode === "cutting" ? "deficit" : "surplus"})
+                </p>
+                {isOwner ? (
+                  <div className="flex rounded-md border border-input overflow-hidden w-fit text-xs font-medium">
+                    {([0.5, 1] as const).map((rate) => {
+                      const active = (stats?.goalRate ?? 1) === rate;
+                      return (
+                        <button
+                          key={rate}
+                          onClick={() => handleSetGoalRate(rate)}
+                          className={`px-3 py-1.5 transition-colors border-r border-input last:border-r-0 ${
+                            active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          {rate === 0.5 ? "½ lb/wk" : "1 lb/wk"}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <span className="text-xs text-muted-foreground">
+                    {(stats?.goalRate ?? 1) === 0.5 ? "½ lb/wk" : "1 lb/wk"}
+                  </span>
+                )}
+              </div>
             )}
           </div>
 
@@ -349,7 +409,7 @@ export default function BodyMetrics({ date, userId, isOwner = true }: BodyMetric
               date={date}
               userId={userId}
               isOwner={isOwner}
-              currentWeight={stats?.weightLbs ?? null}
+              targetWeight={stats?.targetWeightLbs ?? null}
             />
           </div>
         </div>

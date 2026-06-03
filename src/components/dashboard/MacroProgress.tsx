@@ -15,6 +15,7 @@ interface Stats {
   weightLbs: number | null;
   bodyFatPct: number | null;
   mode: string | null;
+  goalRate: number | null;
 }
 
 function calcBMR(weightLbs: number, bodyFatPct: number): number {
@@ -224,7 +225,8 @@ export default function MacroProgress({ items, date, userId, isOwner }: Props) {
   const stepKcal = steps != null ? Math.round(steps * weightKg * 0.0006) : 0;
   const workoutKcal = whoop?.workouts.reduce((sum, w) => sum + estimateWorkoutKcal(w, weightKg, 30), 0) ?? 0;
   const tdee = Math.round(bmr * 1.2) + stepKcal + workoutKcal;
-  const targets: MacroTargets = calcMacroTargets(tdee, stats.weightLbs, mode);
+  const goalRate = stats.goalRate ?? 1;
+  const targets: MacroTargets = calcMacroTargets(tdee, stats.weightLbs, mode, goalRate);
 
   const current = {
     kcal:    items.reduce((s, i) => s + i.calories, 0),

@@ -9,7 +9,7 @@ interface Props {
   date: string;
   userId: string;
   isOwner: boolean;
-  currentWeight: number | null;
+  targetWeight: number | null;
 }
 
 // Explicit dark-theme colors — CSS variables don't resolve inside Recharts SVG
@@ -27,7 +27,7 @@ function fmtDate(d: string) {
   return `${parseInt(m)}/${parseInt(day)}`;
 }
 
-export default function WeightChart({ date, userId, isOwner, currentWeight }: Props) {
+export default function WeightChart({ date, userId, isOwner, targetWeight }: Props) {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [input, setInput] = useState("");
   const [saving, setSaving] = useState(false);
@@ -48,11 +48,24 @@ export default function WeightChart({ date, userId, isOwner, currentWeight }: Pr
     if (!isOwner || saving) return;
     setSaving(true);
     const val = input.trim() ? parseFloat(input) : null;
+
     await fetch("/api/weight", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ date, weightLbs: val }),
     });
+
+    // If logging today's weight, also sync it to UserStats so TDEE stays current
+    const today = new Date(Date.now() - 4 * 60 * 60 * 1000).toLocaleDateString("en-CA");
+    if (date === today && val != null) {
+      await fetch("/api/user/stats", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ weightLbs: val }),
+      });
+      window.dispatchEvent(new CustomEvent("stats-updated"));
+    }
+
     const res = await fetch(`/api/weight?userId=${userId}`);
     const d = res.ok ? await res.json() : null;
     setEntries(d?.entries ?? []);
@@ -140,9 +153,9 @@ export default function WeightChart({ date, userId, isOwner, currentWeight }: Pr
                 labelFormatter={(d) => typeof d === "string" ? fmtDate(d) : String(d)}
                 cursor={{ stroke: COLORS.reference, strokeWidth: 1 }}
               />
-              {currentWeight && (
+              {targetWeight && (
                 <ReferenceLine
-                  y={currentWeight}
+                  y={targetWeight}
                   stroke={COLORS.reference}
                   strokeDasharray="4 2"
                   strokeOpacity={0.4}

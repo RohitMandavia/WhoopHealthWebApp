@@ -45,11 +45,13 @@ model UserStats {
   id          String   @id @default(cuid())
   userId      String   @unique
   user        User     @relation(fields: [userId], references: [id])
-  weightLbs   Float?
-  heightIn    Float?   // stored as total inches; displayed as ft + in
-  age         Int?
-  bodyFatPct  Float?
-  mode        String?  // "cutting" | "maintenance" | "bulking"
+  weightLbs       Float?
+  heightIn        Float?   // stored as total inches; displayed as ft + in
+  age             Int?
+  bodyFatPct      Float?
+  mode            String?  // "cutting" | "maintenance" | "bulking"
+  goalRate        Float?   // lbs per week: 0.5 or 1.0
+  targetWeightLbs Float?
   updatedAt   DateTime @updatedAt
   createdAt   DateTime @default(now())
 }

@@ -7,11 +7,14 @@ export interface MacroTargets {
   carbs: number;   // g
 }
 
-const CALORIE_DELTA: Record<Mode, number> = {
-  cutting: -500,
-  maintenance: 0,
-  bulking: 250,
-};
+// goalRate: lbs per week (0.5 or 1.0)
+// 0.5 lb/wk = 250 kcal/day deficit or surplus
+// 1.0 lb/wk = 500 kcal/day deficit or surplus
+function calorieDelta(mode: Mode, goalRate: number): number {
+  if (mode === "maintenance") return 0;
+  const daily = Math.round(goalRate * 500); // 500 kcal per lb per week
+  return mode === "cutting" ? -daily : daily;
+}
 
 const PROTEIN_PER_LB: Record<Mode, number> = {
   cutting: 1.1,
@@ -25,8 +28,8 @@ const FAT_GRAMS: Record<Mode, number> = {
   bulking: 75,
 };
 
-export function calcMacroTargets(tdee: number, weightLbs: number, mode: Mode): MacroTargets {
-  const kcal = Math.round(tdee + CALORIE_DELTA[mode]);
+export function calcMacroTargets(tdee: number, weightLbs: number, mode: Mode, goalRate = 1): MacroTargets {
+  const kcal = Math.round(tdee + calorieDelta(mode, goalRate));
   const protein = Math.round(weightLbs * PROTEIN_PER_LB[mode]);
   const fat = FAT_GRAMS[mode];
   const carbs = Math.max(0, Math.round((kcal - protein * 4 - fat * 9) / 4));
