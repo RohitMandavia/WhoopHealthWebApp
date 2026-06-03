@@ -14,6 +14,7 @@ interface Stats {
   mode: string | null;
   goalRate: number | null;
   targetWeightLbs: number | null;
+  sleepGoalHours: number | null;
 }
 
 interface TDEEResult {
@@ -80,7 +81,7 @@ export default function BodyMetrics({ date, userId, isOwner = true }: BodyMetric
   const [stepInput, setStepInput] = useState("");
   const [savingSteps, setSavingSteps] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ weightLbs: "", ft: "", inches: "", age: "", bodyFatPct: "", targetWeightLbs: "" });
+  const [form, setForm] = useState({ weightLbs: "", ft: "", inches: "", age: "", bodyFatPct: "", targetWeightLbs: "", sleepGoalHours: "8" });
   const [saving, setSaving] = useState(false);
 
   async function handleSetMode(mode: Mode) {
@@ -153,6 +154,7 @@ export default function BodyMetrics({ date, userId, isOwner = true }: BodyMetric
       age: stats.age != null ? String(stats.age) : "",
       bodyFatPct: stats.bodyFatPct != null ? String(stats.bodyFatPct) : "",
       targetWeightLbs: stats.targetWeightLbs != null ? String(stats.targetWeightLbs) : "",
+      sleepGoalHours: stats.sleepGoalHours != null ? String(stats.sleepGoalHours) : "8",
     });
     setEditing(true);
   }
@@ -169,6 +171,7 @@ export default function BodyMetrics({ date, userId, isOwner = true }: BodyMetric
       age: form.age ? Number(form.age) : null,
       bodyFatPct: form.bodyFatPct ? Number(form.bodyFatPct) : null,
       targetWeightLbs: form.targetWeightLbs ? Number(form.targetWeightLbs) : null,
+      sleepGoalHours: Number(form.sleepGoalHours) || 8,
     };
 
     const res = await fetch("/api/user/stats", {
@@ -277,6 +280,26 @@ export default function BodyMetrics({ date, userId, isOwner = true }: BodyMetric
             />
           </label>
 
+          <div className="space-y-1">
+            <span className="text-xs text-muted-foreground">Sleep Goal (hrs/night)</span>
+            <div className="flex rounded-md border border-input overflow-hidden w-fit text-xs font-medium">
+              {[7, 7.5, 8, 8.5, 9].map((h) => (
+                <button
+                  key={h}
+                  type="button"
+                  onClick={() => setForm((f) => ({ ...f, sleepGoalHours: String(h) }))}
+                  className={`px-2.5 py-1.5 border-r border-input last:border-r-0 transition-colors ${
+                    form.sleepGoalHours === String(h)
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {h}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="flex gap-2">
             <Button size="sm" className="h-7 text-xs" onClick={handleSave} disabled={saving}>
               {saving ? "Saving…" : "Save"}
@@ -297,6 +320,7 @@ export default function BodyMetrics({ date, userId, isOwner = true }: BodyMetric
             {stats?.targetWeightLbs != null && (
               <Metric label="Target" value={`${stats.targetWeightLbs} lbs`} />
             )}
+            <Metric label="Sleep Goal" value={`${stats?.sleepGoalHours ?? 8}h`} />
           </div>
 
           {/* Goal — interactive toggle for owner, static badge for friend */}

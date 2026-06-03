@@ -52,6 +52,7 @@ model UserStats {
   mode            String?  // "cutting" | "maintenance" | "bulking"
   goalRate        Float?   // lbs per week: 0.5 or 1.0
   targetWeightLbs Float?
+  sleepGoalHours  Float?   // hours per night: 7.0–9.0, default 8
   updatedAt   DateTime @updatedAt
   createdAt   DateTime @default(now())
 }
