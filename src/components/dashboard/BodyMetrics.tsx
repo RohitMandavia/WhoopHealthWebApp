@@ -109,12 +109,13 @@ export default function BodyMetrics({ date, userId, isOwner = true }: BodyMetric
 
   useEffect(() => {
     fetch(`/api/user/steps?date=${date}&userId=${userId}`)
-      .then((r) => r.json())
+      .then((r) => r.ok ? r.json() : null)
       .then((d) => {
-        setSteps(d.steps);
-        setStepInput(d.steps != null ? String(d.steps) : "");
-      });
-  }, [date]);
+        setSteps(d?.steps ?? null);
+        setStepInput(d?.steps != null ? String(d.steps) : "");
+      })
+      .catch(() => setSteps(null));
+  }, [date, userId]);
 
   async function handleSaveSteps() {
     setSavingSteps(true);
