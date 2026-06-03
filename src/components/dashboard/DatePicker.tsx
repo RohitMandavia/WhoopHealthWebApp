@@ -13,8 +13,19 @@ export default function DatePicker({ date }: DatePickerProps) {
     router.push(`/?date=${e.target.value}`);
   }
 
+  const today = new Date(Date.now() - 4 * 60 * 60 * 1000).toLocaleDateString("en-CA");
+  const isToday = date === today;
+
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-2">
+      {!isToday && (
+        <button
+          onClick={() => router.push("/")}
+          className="text-xs font-medium px-2.5 py-1.5 rounded-md border border-input text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+        >
+          Today
+        </button>
+      )}
       <label htmlFor="date-picker" className="text-sm font-medium text-muted-foreground">
         Date
       </label>
