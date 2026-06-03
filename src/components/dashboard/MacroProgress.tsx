@@ -42,11 +42,11 @@ const C = {
   track:  "rgba(255,255,255,0.08)",
 };
 
-function macroRingColor(macroProgress: number, calProgress: number): string {
-  if (calProgress === 0) return macroProgress === 0 ? C.indigo : C.red;
+function macroRingColor(macroProgress: number, calProgress: number, allowOver = false): string {
+  if (calProgress === 0) return macroProgress === 0 ? C.indigo : (allowOver ? C.green : C.red);
   const ratio = macroProgress / calProgress;
-  if (ratio >= 0.8 && ratio <= 1.2) return C.green;
-  if (ratio > 1.2) return C.red;
+  if (ratio >= 0.8) return C.green;   // on pace or ahead — always green when allowOver
+  if (!allowOver && ratio > 1.2) return C.red;
   return C.yellow;
 }
 
@@ -66,9 +66,10 @@ interface RingProps {
   color: string;
   size: number;
   strokeWidth?: number;
+  showRemaining?: boolean;
 }
 
-function Ring({ label, sublabel, current, target, unit, decimals = 0, color, size, strokeWidth = 8 }: RingProps) {
+function Ring({ label, sublabel, current, target, unit, decimals = 0, color, size, strokeWidth = 8, showRemaining = false }: RingProps) {
   const cx = size / 2;
   const cy = size / 2;
   const r = (size - strokeWidth) / 2;
@@ -109,6 +110,11 @@ function Ring({ label, sublabel, current, target, unit, decimals = 0, color, siz
       <div className="text-center leading-tight">
         <p style={{ fontSize: size > 90 ? 12 : 10 }} className="font-medium">{label}</p>
         {sublabel && <p style={{ fontSize: 9 }} className="text-muted-foreground">{sublabel}</p>}
+        {showRemaining && !over && current < target && (
+          <p style={{ fontSize: 9, color: "#6b7280" }}>
+            {fmt(target - current)} {unit} left
+          </p>
+        )}
         {over && <p style={{ fontSize: 9, color: C.red }} className="font-medium">+{fmt(current - target)} over</p>}
       </div>
     </div>
@@ -169,8 +175,8 @@ function VitaminButton({ date, userId, isOwner }: VitaminButtonProps) {
             taken
               ? "bg-green-500/20 text-green-400 border border-green-500/40"
               : isOwner
-              ? "bg-muted text-muted-foreground border border-border hover:border-green-500/40 hover:text-green-400"
-              : "bg-muted text-muted-foreground border border-border cursor-default",
+              ? "bg-red-500/15 text-red-400 border border-red-500/40 hover:border-green-500/40 hover:text-green-400 hover:bg-green-500/10"
+              : "bg-red-500/15 text-red-400 border border-red-500/40 cursor-default",
           ].join(" ")}
         >
           <span>{taken ? "✓" : "○"}</span>
@@ -249,7 +255,7 @@ export default function MacroProgress({ items, date, userId, isOwner }: Props) {
           sublabel={`${targets.kcal.toLocaleString()} kcal goal`}
           current={current.kcal} target={targets.kcal} unit="kcal"
           color={calRingColor(calProgress)}
-          size={148} strokeWidth={12}
+          size={148} strokeWidth={12} showRemaining
         />
       </div>
 
@@ -257,18 +263,18 @@ export default function MacroProgress({ items, date, userId, isOwner }: Props) {
       <div className="flex justify-around">
         <Ring
           label="Protein" current={current.protein} target={targets.protein} unit="g" decimals={1}
-          color={macroRingColor(proteinProgress, calProgress)}
+          color={macroRingColor(proteinProgress, calProgress, true)}
           size={82}
         />
         <Ring
           label="Carbs" current={current.carbs} target={targets.carbs} unit="g" decimals={1}
           color={macroRingColor(carbProgress, calProgress)}
-          size={82}
+          size={82} showRemaining
         />
         <Ring
           label="Fat" current={current.fat} target={targets.fat} unit="g" decimals={1}
           color={macroRingColor(fatProgress, calProgress)}
-          size={82}
+          size={82} showRemaining
         />
       </div>
 
