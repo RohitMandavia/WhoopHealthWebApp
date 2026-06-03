@@ -19,6 +19,8 @@ model User {
   whoopToken   WhoopToken?
   googleToken  GoogleToken?
   stats        UserStats?
+  exercises    Exercise[]
+  prEntries    PREntry[]
 }
 
 model VitaminLog {
@@ -99,6 +101,32 @@ model FoodLog {
   rawInput  String
   items     Json
   createdAt DateTime @default(now())
+}
+
+model Exercise {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  name      String
+  type      String    // "weight_reps" | "reps" | "time" | "distance"
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+  entries   PREntry[]
+
+  @@unique([userId, name])
+}
+
+model PREntry {
+  id             String   @id @default(cuid())
+  exerciseId     String
+  exercise       Exercise @relation(fields: [exerciseId], references: [id])
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  date           String   // "YYYY-MM-DD"
+  primaryValue   Float    // weight(lbs) | reps | seconds | miles
+  secondaryValue Float?   // reps when type = weight_reps
+  notes          String?
+  createdAt      DateTime @default(now())
 }
 
 model FoodPreset {

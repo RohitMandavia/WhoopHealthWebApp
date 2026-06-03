@@ -6,6 +6,7 @@ import WhoopSection from "@/components/dashboard/WhoopSection";
 import FoodSection from "@/components/dashboard/FoodSection";
 import UserPicker from "@/components/dashboard/UserPicker";
 import BodyMetrics from "@/components/dashboard/BodyMetrics";
+import PRSection from "@/components/dashboard/PRSection";
 
 interface PageProps {
   searchParams: Promise<{ date?: string; view?: string; connected?: string; error?: string; calendar?: string }>;
@@ -98,8 +99,9 @@ export default async function Home({ searchParams }: PageProps) {
             </div>
           </section>
 
-          <section>
+          <section className="space-y-8">
             <FoodSection date={date} userId={viewUserId} isOwner={isOwner} />
+            <PRSection userId={viewUserId} isOwner={isOwner} />
           </section>
         </div>
       </main>
