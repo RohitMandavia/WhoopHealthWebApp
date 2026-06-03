@@ -42,22 +42,47 @@ export default function FoodSection({ date, userId, isOwner }: FoodSectionProps)
       .then((data) => setPresets(data.presets ?? []));
   }, [userId]);
 
+  function mergeItems(items: FoodItem[]): FoodItem[] {
+    const seen = new Map<string, FoodItem & { count: number }>();
+    for (const item of items) {
+      const key = item.name.toLowerCase().trim();
+      if (seen.has(key)) {
+        const ex = seen.get(key)!;
+        seen.set(key, {
+          ...ex,
+          count: ex.count + 1,
+          calories: ex.calories + item.calories,
+          protein:  +(ex.protein  + item.protein).toFixed(1),
+          carbs:    +(ex.carbs    + item.carbs).toFixed(1),
+          fat:      +(ex.fat      + item.fat).toFixed(1),
+          quantity: ex.quantity === item.quantity
+            ? `${ex.count + 1}× ${item.quantity}`
+            : ex.quantity,
+        });
+      } else {
+        seen.set(key, { ...item, count: 1 });
+      }
+    }
+    return Array.from(seen.values()).map(({ count: _c, ...item }) => item);
+  }
+
   async function saveItems(items: FoodItem[]) {
+    const merged = mergeItems(items);
     if (logId) {
       await fetch(`/api/food/log/${logId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items }),
+        body: JSON.stringify({ items: merged }),
       });
       for (const log of logs.slice(1)) {
         await fetch(`/api/food/log/${log.id}`, { method: "DELETE" });
       }
-      setLogs((prev) => [{ ...prev[0], items }]);
+      setLogs((prev) => [{ ...prev[0], items: merged }]);
     } else {
       const res = await fetch("/api/food/log", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date, rawInput: "chat", items }),
+        body: JSON.stringify({ date, rawInput: "chat", items: merged }),
       });
       const { log } = await res.json();
       setLogId(log.id);
