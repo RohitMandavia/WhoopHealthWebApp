@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import type { FoodItem } from "@/types";
 import { filterZeroCalItems, estimateCaffeineMg } from "@/lib/anthropic";
-import { prisma } from "@/lib/prisma";
-import { getCurrentUserId } from "@/lib/auth";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -21,11 +19,9 @@ Each item: name (string), quantity (string), calories (integer kcal), protein (n
 Respond with only valid JSON, no explanation.`;
 
 export async function POST(req: NextRequest) {
-  const userId = getCurrentUserId(req);
-  const { message, currentItems, date } = await req.json() as {
+  const { message, currentItems } = await req.json() as {
     message: string;
     currentItems: FoodItem[];
-    date?: string;
   };
 
   if (!message?.trim()) {
@@ -85,33 +81,6 @@ export async function POST(req: NextRequest) {
     let reply = result.reply ?? "";
     if (dropped.length > 0) {
       reply += ` (Could not estimate calories for: ${dropped.join(", ")} — please re-enter with more detail.)`;
-    }
-
-    // Auto-add caffeine log — isolated so a DB failure never breaks the food response
-    if (userId && date) {
-      try {
-        const caffeineItems = enrichedItems.filter((i) => (i.caffeineMg ?? 0) > 0);
-        if (caffeineItems.length > 0) {
-          const existing = await prisma.caffeineLog.findMany({ where: { userId, date } });
-          const loggedSources = new Set(existing.map((e) => (e.source ?? "").toLowerCase().trim()));
-          const toAdd = caffeineItems.filter(
-            (i) => !loggedSources.has(i.name.toLowerCase().trim())
-          );
-          if (toAdd.length > 0) {
-            await prisma.caffeineLog.createMany({
-              data: toAdd.map((i) => ({
-                userId,
-                date,
-                mg: Math.round(i.caffeineMg!),
-                source: i.name,
-                time: null,
-              })),
-            });
-          }
-        }
-      } catch (cafErr) {
-        console.error("[caffeine log]", cafErr);
-      }
     }
 
     return NextResponse.json({ ...result, items: enrichedItems, reply });

@@ -10,7 +10,7 @@ interface PresetManagerProps {
   onPresetsChanged: (presets: FoodPreset[]) => void;
 }
 
-const EMPTY_FORM = { name: "", quantity: "", calories: "", protein: "", carbs: "", fat: "" };
+const EMPTY_FORM = { name: "", quantity: "", calories: "", protein: "", carbs: "", fat: "", caffeineMg: "" };
 
 export default function PresetManager({ presets, onClose, onPresetsChanged }: PresetManagerProps) {
   const [form, setForm] = useState(EMPTY_FORM);
@@ -39,6 +39,7 @@ export default function PresetManager({ presets, onClose, onPresetsChanged }: Pr
       protein: String(preset.protein),
       carbs: String(preset.carbs),
       fat: String(preset.fat),
+      caffeineMg: preset.caffeineMg != null ? String(preset.caffeineMg) : "",
     });
   }
 
@@ -58,6 +59,7 @@ export default function PresetManager({ presets, onClose, onPresetsChanged }: Pr
       protein: Number(form.protein) || 0,
       carbs: Number(form.carbs) || 0,
       fat: Number(form.fat) || 0,
+      caffeineMg: form.caffeineMg ? Math.round(Number(form.caffeineMg)) : null,
     };
 
     if (editingId) {
@@ -107,6 +109,7 @@ export default function PresetManager({ presets, onClose, onPresetsChanged }: Pr
                 {field("protein")}
                 {field("carbs")}
                 {field("fat")}
+                {field("caffeineMg")}
                 <div className="col-span-6 flex gap-2">
                   <Button size="sm" className="h-7 text-xs" onClick={handleSave} disabled={saving}>Save</Button>
                   <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={cancelEdit}>Cancel</Button>
@@ -116,7 +119,7 @@ export default function PresetManager({ presets, onClose, onPresetsChanged }: Pr
               <div key={preset.id} className="flex items-center justify-between text-sm py-1 border-b last:border-0">
                 <div>
                   <span className="font-medium">{preset.name}</span>
-                  <span className="text-muted-foreground ml-2 text-xs">{preset.quantity} · {preset.calories} cal · {preset.protein}g P · {preset.carbs}g C · {preset.fat}g F</span>
+                  <span className="text-muted-foreground ml-2 text-xs">{preset.quantity} · {preset.calories} cal · {preset.protein}g P · {preset.carbs}g C · {preset.fat}g F{preset.caffeineMg ? ` · ${preset.caffeineMg}mg caffeine` : ""}</span>
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => startEdit(preset)} className="text-xs text-muted-foreground hover:text-foreground">Edit</button>
@@ -139,8 +142,9 @@ export default function PresetManager({ presets, onClose, onPresetsChanged }: Pr
             {field("protein")}
             {field("carbs")}
             {field("fat")}
+            {field("caffeineMg")}
           </div>
-          <p className="text-xs text-muted-foreground">Name · Quantity · Calories · Protein (g) · Carbs (g) · Fat (g)</p>
+          <p className="text-xs text-muted-foreground">Name · Quantity · Calories · Protein (g) · Carbs (g) · Fat (g) · Caffeine (mg, optional)</p>
           <Button size="sm" className="h-7 text-xs" onClick={handleSave} disabled={saving || !form.name.trim() || !form.calories}>
             {saving ? "Saving…" : "Add Preset"}
           </Button>

@@ -102,7 +102,26 @@ export default function FoodSection({ date, userId, isOwner }: FoodSectionProps)
   }
 
   async function handleItemsUpdated(items: FoodItem[]) {
+    // Detect newly added caffeinated items (not already in the food log)
+    const existingNames = new Set(allItems.map((i) => i.name.toLowerCase().trim()));
+    const newCaffeineItems = items.filter(
+      (i) => (i.caffeineMg ?? 0) > 0 && !existingNames.has(i.name.toLowerCase().trim())
+    );
+
     await saveItems(items);
+
+    if (newCaffeineItems.length > 0) {
+      await Promise.all(
+        newCaffeineItems.map((i) =>
+          fetch("/api/caffeine", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ date, mg: Math.round(i.caffeineMg!), source: i.name, time: null }),
+          })
+        )
+      );
+    }
+
     window.dispatchEvent(new CustomEvent("caffeine-updated"));
   }
 

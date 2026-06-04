@@ -28,6 +28,7 @@ export default function PresetButtons({
       protein: preset.protein,
       carbs: preset.carbs,
       fat: preset.fat,
+      caffeineMg: preset.caffeineMg ?? undefined,
     };
     onItemsUpdated?.([...currentItems, newItem]);
     setAdding(null);
