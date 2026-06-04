@@ -3,6 +3,38 @@ import type { FoodItem } from "@/types";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+// Name-based caffeine lookup — used as a fallback when Claude omits caffeineMg
+const CAFFEINE_PATTERNS: Array<{ re: RegExp; mg: number }> = [
+  { re: /cold brew/i,                                mg: 155 },
+  { re: /venti/i,                                    mg: 225 },
+  { re: /grande/i,                                   mg: 150 },
+  { re: /tall\s+(latte|cappuccino|americano|mocha|macchiato|coffee)/i, mg: 75 },
+  { re: /espresso/i,                                 mg: 63  },
+  { re: /latte|cappuccino|flat white|cortado/i,      mg: 150 },
+  { re: /americano/i,                                mg: 150 },
+  { re: /mocha/i,                                    mg: 150 },
+  { re: /macchiato/i,                                mg: 150 },
+  { re: /matcha/i,                                   mg: 70  },
+  { re: /green tea/i,                                mg: 28  },
+  { re: /black tea/i,                                mg: 47  },
+  { re: /oolong/i,                                   mg: 37  },
+  { re: /chai/i,                                     mg: 50  },
+  { re: /red bull/i,                                 mg: 80  },
+  { re: /monster/i,                                  mg: 160 },
+  { re: /celsius/i,                                  mg: 200 },
+  { re: /bang energy/i,                              mg: 300 },
+  { re: /pre.?workout/i,                             mg: 150 },
+  { re: /coffee/i,                                   mg: 95  },
+  { re: /\btea\b/i,                                  mg: 47  },
+];
+
+export function estimateCaffeineMg(name: string): number {
+  for (const { re, mg } of CAFFEINE_PATTERNS) {
+    if (re.test(name)) return mg;
+  }
+  return 0;
+}
+
 const ZERO_CAL_EXCEPTIONS = ["water", "coffee", "tea", "diet", "sparkling water", "soda water", "La Croix", "Celsius"];
 
 function isLegitimatelyZeroCal(name: string): boolean {

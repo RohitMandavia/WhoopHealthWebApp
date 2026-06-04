@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import type { FoodItem } from "@/types";
-import { filterZeroCalItems } from "@/lib/anthropic";
+import { filterZeroCalItems, estimateCaffeineMg } from "@/lib/anthropic";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserId } from "@/lib/auth";
 
@@ -76,35 +76,45 @@ export async function POST(req: NextRequest) {
 
     const { items: validItems, dropped } = filterZeroCalItems(guardedItems);
 
+    // Enrich items: fill in caffeineMg from name-based lookup when Claude omits it
+    const enrichedItems = validItems.map((i) => ({
+      ...i,
+      caffeineMg: i.caffeineMg || estimateCaffeineMg(i.name) || undefined,
+    }));
+
     let reply = result.reply ?? "";
     if (dropped.length > 0) {
       reply += ` (Could not estimate calories for: ${dropped.join(", ")} — please re-enter with more detail.)`;
     }
 
-    // Auto-add caffeine log for caffeinated items not already logged today
+    // Auto-add caffeine log — isolated so a DB failure never breaks the food response
     if (userId && date) {
-      const caffeineItems = validItems.filter((i) => (i.caffeineMg ?? 0) > 0);
-      if (caffeineItems.length > 0) {
-        const existing = await prisma.caffeineLog.findMany({ where: { userId, date } });
-        const loggedSources = new Set(existing.map((e) => (e.source ?? "").toLowerCase().trim()));
-        const toAdd = caffeineItems.filter(
-          (i) => !loggedSources.has(i.name.toLowerCase().trim())
-        );
-        if (toAdd.length > 0) {
-          await prisma.caffeineLog.createMany({
-            data: toAdd.map((i) => ({
-              userId,
-              date,
-              mg: Math.round(i.caffeineMg!),
-              source: i.name,
-              time: null,
-            })),
-          });
+      try {
+        const caffeineItems = enrichedItems.filter((i) => (i.caffeineMg ?? 0) > 0);
+        if (caffeineItems.length > 0) {
+          const existing = await prisma.caffeineLog.findMany({ where: { userId, date } });
+          const loggedSources = new Set(existing.map((e) => (e.source ?? "").toLowerCase().trim()));
+          const toAdd = caffeineItems.filter(
+            (i) => !loggedSources.has(i.name.toLowerCase().trim())
+          );
+          if (toAdd.length > 0) {
+            await prisma.caffeineLog.createMany({
+              data: toAdd.map((i) => ({
+                userId,
+                date,
+                mg: Math.round(i.caffeineMg!),
+                source: i.name,
+                time: null,
+              })),
+            });
+          }
         }
+      } catch (cafErr) {
+        console.error("[caffeine log]", cafErr);
       }
     }
 
-    return NextResponse.json({ ...result, items: validItems, reply });
+    return NextResponse.json({ ...result, items: enrichedItems, reply });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("Food chat error:", msg);
