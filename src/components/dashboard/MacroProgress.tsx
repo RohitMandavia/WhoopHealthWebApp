@@ -124,6 +124,7 @@ function Ring({ label, sublabel, current, target, unit, decimals = 0, color, siz
 
 const PARTICLES       = ["✨", "🎉", "⭐", "🌟", "✨", "💊"];
 const STRETCH_PARTS   = ["🧘", "⭐", "✨", "💪", "✨", "🌟"];
+const WATER_PARTS     = ["💧", "⭐", "✨", "🌊", "✨", "💧"];
 
 interface VitaminButtonProps {
   date: string;
@@ -255,6 +256,61 @@ function StretchButton({ date, userId, isOwner }: StretchButtonProps) {
   );
 }
 
+function WaterButton({ date, userId, isOwner }: StretchButtonProps) {
+  const [done, setDone] = useState<boolean | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [celebrating, setCelebrating] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/water?date=${date}&userId=${userId}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => setDone(d?.done ?? false))
+      .catch(() => setDone(false));
+  }, [date, userId]);
+
+  async function handleToggle() {
+    if (!isOwner || saving || done === null) return;
+    setSaving(true);
+    const next = !done;
+    setDone(next);
+    if (next) { setCelebrating(true); setTimeout(() => setCelebrating(false), 900); }
+    await fetch("/api/water", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date, done: next }),
+    });
+    setSaving(false);
+  }
+
+  if (done === null) return null;
+
+  return (
+    <div className="relative flex-1">
+      <button
+        onClick={handleToggle}
+        disabled={!isOwner || saving}
+        className={[
+          "w-full flex items-center justify-center gap-2 rounded-full px-4 py-1.5 text-xs font-medium transition-colors",
+          celebrating ? "vit-pop" : "",
+          done
+            ? "bg-green-500/20 text-green-400 border border-green-500/40"
+            : isOwner
+            ? "bg-red-500/15 text-red-400 border border-red-500/40 hover:border-green-500/40 hover:text-green-400 hover:bg-green-500/10"
+            : "bg-red-500/15 text-red-400 border border-red-500/40 cursor-default",
+        ].join(" ")}
+      >
+        <span>{done ? "✓" : "○"}</span>
+        {done ? "Drank enough water" : "Drank enough water?"}
+      </button>
+      {celebrating && WATER_PARTS.map((emoji, i) => (
+        <span key={i} className="vit-particle" style={{ left: `${20 + i * 12}%`, bottom: "50%", animationDelay: `${i * 0.07}s` }}>
+          {emoji}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export default function MacroProgress({ items, date, userId, isOwner }: Props) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [steps, setSteps] = useState<number | null>(null);
@@ -342,10 +398,11 @@ export default function MacroProgress({ items, date, userId, isOwner }: Props) {
         />
       </div>
 
-      {/* Vitamin + Stretch buttons */}
+      {/* Habit buttons */}
       <div className="flex gap-2">
         <VitaminButton date={date} userId={userId} isOwner={isOwner} />
         <StretchButton date={date} userId={userId} isOwner={isOwner} />
+        <WaterButton date={date} userId={userId} isOwner={isOwner} />
       </div>
     </div>
   );
