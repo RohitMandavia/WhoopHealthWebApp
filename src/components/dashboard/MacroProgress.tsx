@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { calcMacroTargets, type Mode, type MacroTargets } from "@/lib/macros";
 import type { FoodItem, WhoopDaily } from "@/types";
 
@@ -122,7 +123,8 @@ function Ring({ label, sublabel, current, target, unit, decimals = 0, color, siz
   );
 }
 
-const PARTICLES = ["✨", "🎉", "⭐", "🌟", "✨", "💊"];
+const PARTICLES     = ["✨", "🎉", "⭐", "🌟", "✨", "💊"];
+const TODAY_PARTS   = ["📅", "⭐", "✨", "🎯", "✨", "⭐"];
 
 interface VitaminButtonProps {
   date: string;
@@ -166,12 +168,12 @@ function VitaminButton({ date, userId, isOwner }: VitaminButtonProps) {
         .vit-pop { animation: vitaminPop 0.4s ease forwards; }
         .vit-particle { position:absolute; pointer-events:none; font-size:12px; animation: vitaminFloat 0.9s ease-out forwards; }
       `}</style>
-      <div className="relative flex justify-center">
+      <div className="relative flex-1">
         <button
           onClick={handleToggle}
           disabled={!isOwner || saving}
           className={[
-            "flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-medium transition-colors",
+            "w-full flex items-center justify-center gap-2 rounded-full px-4 py-1.5 text-xs font-medium transition-colors",
             celebrating ? "vit-pop" : "",
             taken
               ? "bg-green-500/20 text-green-400 border border-green-500/40"
@@ -190,6 +192,41 @@ function VitaminButton({ date, userId, isOwner }: VitaminButtonProps) {
         ))}
       </div>
     </>
+  );
+}
+
+function TodayButton() {
+  const router = useRouter();
+  const [celebrating, setCelebrating] = useState(false);
+
+  function handleClick() {
+    if (celebrating) return;
+    setCelebrating(true);
+    setTimeout(() => {
+      router.push("/");
+    }, 700);
+  }
+
+  return (
+    <div className="relative flex-1">
+      <button
+        onClick={handleClick}
+        disabled={celebrating}
+        className={[
+          "w-full flex items-center justify-center gap-2 rounded-full px-4 py-1.5 text-xs font-medium transition-colors",
+          "bg-indigo-500/15 text-indigo-400 border border-indigo-500/40 hover:bg-indigo-500/25",
+          celebrating ? "vit-pop" : "",
+        ].join(" ")}
+      >
+        <span>→</span>
+        Today
+      </button>
+      {celebrating && TODAY_PARTS.map((emoji, i) => (
+        <span key={i} className="vit-particle" style={{ left: `${20 + i * 12}%`, bottom: "50%", animationDelay: `${i * 0.07}s` }}>
+          {emoji}
+        </span>
+      ))}
+    </div>
   );
 }
 
@@ -280,8 +317,16 @@ export default function MacroProgress({ items, date, userId, isOwner }: Props) {
         />
       </div>
 
-      {/* Vitamin toggle */}
-      <VitaminButton date={date} userId={userId} isOwner={isOwner} />
+      {/* Vitamin + Today buttons */}
+      {(() => {
+        const today = new Date(Date.now() - 4 * 60 * 60 * 1000).toLocaleDateString("en-CA");
+        return (
+          <div className="flex gap-2">
+            <VitaminButton date={date} userId={userId} isOwner={isOwner} />
+            {date !== today && <TodayButton />}
+          </div>
+        );
+      })()}
     </div>
   );
 }
