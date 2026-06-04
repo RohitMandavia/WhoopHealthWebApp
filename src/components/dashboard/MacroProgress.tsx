@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { calcMacroTargets, type Mode, type MacroTargets } from "@/lib/macros";
 import type { FoodItem, WhoopDaily } from "@/types";
 
@@ -123,8 +122,8 @@ function Ring({ label, sublabel, current, target, unit, decimals = 0, color, siz
   );
 }
 
-const PARTICLES     = ["✨", "🎉", "⭐", "🌟", "✨", "💊"];
-const TODAY_PARTS   = ["📅", "⭐", "✨", "🎯", "✨", "⭐"];
+const PARTICLES       = ["✨", "🎉", "⭐", "🌟", "✨", "💊"];
+const STRETCH_PARTS   = ["🧘", "⭐", "✨", "💪", "✨", "🌟"];
 
 interface VitaminButtonProps {
   date: string;
@@ -195,33 +194,59 @@ function VitaminButton({ date, userId, isOwner }: VitaminButtonProps) {
   );
 }
 
-function TodayButton() {
-  const router = useRouter();
+interface StretchButtonProps {
+  date: string;
+  userId: string;
+  isOwner: boolean;
+}
+
+function StretchButton({ date, userId, isOwner }: StretchButtonProps) {
+  const [done, setDone] = useState<boolean | null>(null);
+  const [saving, setSaving] = useState(false);
   const [celebrating, setCelebrating] = useState(false);
 
-  function handleClick() {
-    if (celebrating) return;
-    setCelebrating(true);
-    setTimeout(() => {
-      router.push("/");
-    }, 700);
+  useEffect(() => {
+    fetch(`/api/stretching?date=${date}&userId=${userId}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => setDone(d?.done ?? false))
+      .catch(() => setDone(false));
+  }, [date, userId]);
+
+  async function handleToggle() {
+    if (!isOwner || saving || done === null) return;
+    setSaving(true);
+    const next = !done;
+    setDone(next);
+    if (next) { setCelebrating(true); setTimeout(() => setCelebrating(false), 900); }
+    await fetch("/api/stretching", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date, done: next }),
+    });
+    setSaving(false);
   }
+
+  if (done === null) return null;
 
   return (
     <div className="relative flex-1">
       <button
-        onClick={handleClick}
-        disabled={celebrating}
+        onClick={handleToggle}
+        disabled={!isOwner || saving}
         className={[
           "w-full flex items-center justify-center gap-2 rounded-full px-4 py-1.5 text-xs font-medium transition-colors",
-          "bg-indigo-500/15 text-indigo-400 border border-indigo-500/40 hover:bg-indigo-500/25",
           celebrating ? "vit-pop" : "",
+          done
+            ? "bg-green-500/20 text-green-400 border border-green-500/40"
+            : isOwner
+            ? "bg-red-500/15 text-red-400 border border-red-500/40 hover:border-green-500/40 hover:text-green-400 hover:bg-green-500/10"
+            : "bg-red-500/15 text-red-400 border border-red-500/40 cursor-default",
         ].join(" ")}
       >
-        <span>→</span>
-        Today
+        <span>{done ? "✓" : "○"}</span>
+        {done ? "Stretched today" : "Stretch today"}
       </button>
-      {celebrating && TODAY_PARTS.map((emoji, i) => (
+      {celebrating && STRETCH_PARTS.map((emoji, i) => (
         <span key={i} className="vit-particle" style={{ left: `${20 + i * 12}%`, bottom: "50%", animationDelay: `${i * 0.07}s` }}>
           {emoji}
         </span>
@@ -317,16 +342,11 @@ export default function MacroProgress({ items, date, userId, isOwner }: Props) {
         />
       </div>
 
-      {/* Vitamin + Today buttons */}
-      {(() => {
-        const today = new Date(Date.now() - 4 * 60 * 60 * 1000).toLocaleDateString("en-CA");
-        return (
-          <div className="flex gap-2">
-            <VitaminButton date={date} userId={userId} isOwner={isOwner} />
-            {date !== today && <TodayButton />}
-          </div>
-        );
-      })()}
+      {/* Vitamin + Stretch buttons */}
+      <div className="flex gap-2">
+        <VitaminButton date={date} userId={userId} isOwner={isOwner} />
+        <StretchButton date={date} userId={userId} isOwner={isOwner} />
+      </div>
     </div>
   );
 }

@@ -21,6 +21,17 @@ model User {
   stats        UserStats?
   exercises    Exercise[]
   prEntries    PREntry[]
+  stretchLogs  StretchLog[]
+}
+
+model StretchLog {
+  id     String  @id @default(cuid())
+  userId String
+  user   User    @relation(fields: [userId], references: [id])
+  date   String
+  done   Boolean @default(false)
+
+  @@unique([userId, date])
 }
 
 model VitaminLog {
