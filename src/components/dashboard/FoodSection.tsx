@@ -103,6 +103,7 @@ export default function FoodSection({ date, userId, isOwner }: FoodSectionProps)
 
   async function handleItemsUpdated(items: FoodItem[]) {
     await saveItems(items);
+    window.dispatchEvent(new CustomEvent("caffeine-updated"));
   }
 
   async function handleClearAll() {

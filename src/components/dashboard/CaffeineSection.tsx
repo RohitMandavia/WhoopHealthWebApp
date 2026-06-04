@@ -32,12 +32,19 @@ export default function CaffeineSection({ date, userId, isOwner }: Props) {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    function fetchEntries() {
+      fetch(`/api/caffeine?date=${date}&userId=${userId}`)
+        .then((r) => r.ok ? r.json() : null)
+        .then((d) => setEntries(d?.entries ?? []))
+        .catch(() => {});
+    }
+
     setLoading(true);
-    fetch(`/api/caffeine?date=${date}&userId=${userId}`)
-      .then((r) => r.ok ? r.json() : null)
-      .then((d) => setEntries(d?.entries ?? []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    fetchEntries();
+    setLoading(false);
+
+    window.addEventListener("caffeine-updated", fetchEntries);
+    return () => window.removeEventListener("caffeine-updated", fetchEntries);
   }, [date, userId]);
 
   async function handleAdd() {
