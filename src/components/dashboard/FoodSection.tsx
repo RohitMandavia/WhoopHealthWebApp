@@ -102,19 +102,25 @@ export default function FoodSection({ date, userId, isOwner }: FoodSectionProps)
   }
 
   async function handleItemsUpdated(items: FoodItem[]) {
-    // Compute caffeine delta per item name (handles adding the same item multiple times)
-    const oldMgByName = new Map<string, number>();
-    for (const item of allItems) {
-      const key = item.name.toLowerCase().trim();
-      oldMgByName.set(key, (oldMgByName.get(key) ?? 0) + (item.caffeineMg ?? 0));
-    }
+    // Sum caffeine totals by name before and after, then diff
+    const sum = (list: FoodItem[]) => {
+      const map = new Map<string, number>();
+      for (const item of list) {
+        const key = item.name.toLowerCase().trim();
+        map.set(key, (map.get(key) ?? 0) + (item.caffeineMg ?? 0));
+      }
+      return map;
+    };
+    const oldMg = sum(allItems);
+    const newMg = sum(items);
 
     const additions: { name: string; mg: number }[] = [];
-    for (const item of items) {
-      if (!(item.caffeineMg ?? 0)) continue;
-      const key = item.name.toLowerCase().trim();
-      const delta = (item.caffeineMg ?? 0) - (oldMgByName.get(key) ?? 0);
-      if (delta > 0) additions.push({ name: item.name, mg: delta });
+    for (const [key, mg] of newMg) {
+      const delta = mg - (oldMg.get(key) ?? 0);
+      if (delta > 0) {
+        const name = items.find((i) => i.name.toLowerCase().trim() === key)?.name ?? key;
+        additions.push({ name, mg: delta });
+      }
     }
 
     await saveItems(items);
