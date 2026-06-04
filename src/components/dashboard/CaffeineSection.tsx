@@ -15,6 +15,66 @@ interface Props {
   isOwner: boolean;
 }
 
+interface EntryRowProps {
+  entry: CaffeineEntry;
+  isOwner: boolean;
+  onDelete: (id: string) => void;
+  onTimeUpdated: (id: string, time: string | null) => void;
+}
+
+function EntryRow({ entry, isOwner, onDelete, onTimeUpdated }: EntryRowProps) {
+  const [editingTime, setEditingTime] = useState(false);
+  const [timeVal, setTimeVal] = useState(entry.time ?? "");
+
+  async function saveTime() {
+    setEditingTime(false);
+    const newTime = timeVal || null;
+    if (newTime === entry.time) return;
+    await fetch(`/api/caffeine/${entry.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ time: newTime }),
+    });
+    onTimeUpdated(entry.id, newTime);
+  }
+
+  return (
+    <div className="flex items-center justify-between text-xs group">
+      <div className="flex items-center gap-2">
+        {editingTime ? (
+          <input
+            type="time"
+            value={timeVal}
+            autoFocus
+            onChange={(e) => setTimeVal(e.target.value)}
+            onBlur={saveTime}
+            onKeyDown={(e) => { if (e.key === "Enter") saveTime(); if (e.key === "Escape") setEditingTime(false); }}
+            className="rounded border border-input bg-background px-1 py-0.5 text-xs w-24 [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:opacity-50"
+          />
+        ) : (
+          <button
+            onClick={() => isOwner && setEditingTime(true)}
+            className={`w-10 text-left ${isOwner ? "hover:text-foreground cursor-pointer" : ""} text-muted-foreground`}
+            title={isOwner ? "Click to set time" : undefined}
+          >
+            {entry.time ?? "—"}
+          </button>
+        )}
+        <span className="font-medium">{entry.mg} mg</span>
+        {entry.source && <span className="text-muted-foreground">{entry.source}</span>}
+      </div>
+      {isOwner && (
+        <button
+          onClick={() => onDelete(entry.id)}
+          className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+        >
+          ✕
+        </button>
+      )}
+    </div>
+  );
+}
+
 function totalColor(mg: number): string {
   if (mg >= 400) return "#f87171"; // red
   if (mg >= 200) return "#facc15"; // yellow
@@ -101,21 +161,7 @@ export default function CaffeineSection({ date, userId, isOwner }: Props) {
       {entries.length > 0 && (
         <div className="space-y-1">
           {entries.map((e) => (
-            <div key={e.id} className="flex items-center justify-between text-xs group">
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground w-10">{e.time ?? "—"}</span>
-                <span className="font-medium">{e.mg} mg</span>
-                {e.source && <span className="text-muted-foreground">{e.source}</span>}
-              </div>
-              {isOwner && (
-                <button
-                  onClick={() => handleDelete(e.id)}
-                  className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
+            <EntryRow key={e.id} entry={e} isOwner={isOwner} onDelete={handleDelete} onTimeUpdated={(id, time) => setEntries((prev) => prev.map((x) => x.id === id ? { ...x, time } : x))} />
           ))}
         </div>
       )}
