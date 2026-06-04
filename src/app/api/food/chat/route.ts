@@ -81,22 +81,26 @@ export async function POST(req: NextRequest) {
       reply += ` (Could not estimate calories for: ${dropped.join(", ")} — please re-enter with more detail.)`;
     }
 
-    // Auto-add caffeine log for items that are new to the log
+    // Auto-add caffeine log for caffeinated items not already logged today
     if (userId && date) {
-      const existingNames = new Set(currentItems.map((i) => i.name.toLowerCase().trim()));
-      const newCaffeineItems = validItems.filter(
-        (i) => (i.caffeineMg ?? 0) > 0 && !existingNames.has(i.name.toLowerCase().trim())
-      );
-      if (newCaffeineItems.length > 0) {
-        await prisma.caffeineLog.createMany({
-          data: newCaffeineItems.map((i) => ({
-            userId,
-            date,
-            mg: Math.round(i.caffeineMg!),
-            source: i.name,
-            time: null,
-          })),
-        });
+      const caffeineItems = validItems.filter((i) => (i.caffeineMg ?? 0) > 0);
+      if (caffeineItems.length > 0) {
+        const existing = await prisma.caffeineLog.findMany({ where: { userId, date } });
+        const loggedSources = new Set(existing.map((e) => (e.source ?? "").toLowerCase().trim()));
+        const toAdd = caffeineItems.filter(
+          (i) => !loggedSources.has(i.name.toLowerCase().trim())
+        );
+        if (toAdd.length > 0) {
+          await prisma.caffeineLog.createMany({
+            data: toAdd.map((i) => ({
+              userId,
+              date,
+              mg: Math.round(i.caffeineMg!),
+              source: i.name,
+              time: null,
+            })),
+          });
+        }
       }
     }
 
