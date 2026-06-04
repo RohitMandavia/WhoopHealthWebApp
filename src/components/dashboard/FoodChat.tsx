@@ -13,9 +13,10 @@ interface Message {
 interface FoodChatProps {
   currentItems: FoodItem[];
   onItemsUpdated: (items: FoodItem[]) => void;
+  date: string;
 }
 
-export default function FoodChat({ currentItems, onItemsUpdated }: FoodChatProps) {
+export default function FoodChat({ currentItems, onItemsUpdated, date }: FoodChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -39,7 +40,7 @@ export default function FoodChat({ currentItems, onItemsUpdated }: FoodChatProps
       const res = await fetch("/api/food/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, currentItems }),
+        body: JSON.stringify({ message: text, currentItems, date }),
       });
 
       if (!res.ok) {

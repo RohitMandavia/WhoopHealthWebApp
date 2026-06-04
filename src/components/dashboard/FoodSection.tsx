@@ -102,24 +102,7 @@ export default function FoodSection({ date, userId, isOwner }: FoodSectionProps)
   }
 
   async function handleItemsUpdated(items: FoodItem[]) {
-    // Detect caffeinated items that weren't in the log before this update
-    const existingNames = new Set(allItems.map((i) => i.name.toLowerCase().trim()));
-    const newCaffeineItems = items.filter(
-      (i) => (i.caffeineMg ?? 0) > 0 && !existingNames.has(i.name.toLowerCase().trim())
-    );
-
     await saveItems(items);
-
-    // Auto-add caffeine log entries for genuinely new caffeinated items
-    await Promise.all(
-      newCaffeineItems.map((i) =>
-        fetch("/api/caffeine", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ date, mg: Math.round(i.caffeineMg!), source: i.name, time: null }),
-        })
-      )
-    );
   }
 
   async function handleClearAll() {
@@ -165,7 +148,7 @@ export default function FoodSection({ date, userId, isOwner }: FoodSectionProps)
       )}
 
       {isOwner && (
-        <FoodChat currentItems={allItems} onItemsUpdated={handleItemsUpdated} />
+        <FoodChat currentItems={allItems} onItemsUpdated={handleItemsUpdated} date={date} />
       )}
 
       {isOwner && allItems.length > 0 && (

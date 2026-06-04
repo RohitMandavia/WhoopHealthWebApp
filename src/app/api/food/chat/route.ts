@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import type { FoodItem } from "@/types";
 import { filterZeroCalItems } from "@/lib/anthropic";
+import { prisma } from "@/lib/prisma";
+import { getCurrentUserId } from "@/lib/auth";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -19,9 +21,11 @@ Each item: name (string), quantity (string), calories (integer kcal), protein (n
 Respond with only valid JSON, no explanation.`;
 
 export async function POST(req: NextRequest) {
-  const { message, currentItems } = await req.json() as {
+  const userId = getCurrentUserId(req);
+  const { message, currentItems, date } = await req.json() as {
     message: string;
     currentItems: FoodItem[];
+    date?: string;
   };
 
   if (!message?.trim()) {
@@ -75,6 +79,25 @@ export async function POST(req: NextRequest) {
     let reply = result.reply ?? "";
     if (dropped.length > 0) {
       reply += ` (Could not estimate calories for: ${dropped.join(", ")} — please re-enter with more detail.)`;
+    }
+
+    // Auto-add caffeine log for items that are new to the log
+    if (userId && date) {
+      const existingNames = new Set(currentItems.map((i) => i.name.toLowerCase().trim()));
+      const newCaffeineItems = validItems.filter(
+        (i) => (i.caffeineMg ?? 0) > 0 && !existingNames.has(i.name.toLowerCase().trim())
+      );
+      if (newCaffeineItems.length > 0) {
+        await prisma.caffeineLog.createMany({
+          data: newCaffeineItems.map((i) => ({
+            userId,
+            date,
+            mg: Math.round(i.caffeineMg!),
+            source: i.name,
+            time: null,
+          })),
+        });
+      }
     }
 
     return NextResponse.json({ ...result, items: validItems, reply });
