@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserId } from "@/lib/auth";
-import type { FoodItem } from "@/types";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
@@ -31,20 +30,6 @@ export async function POST(req: NextRequest) {
   const log = await prisma.foodLog.create({
     data: { userId, date, rawInput, items },
   });
-
-  // Auto-add caffeine entries for any caffeinated food items (time left null)
-  const caffeineItems = (items as FoodItem[]).filter((i) => i.caffeineMg && i.caffeineMg > 0);
-  if (caffeineItems.length > 0) {
-    await prisma.caffeineLog.createMany({
-      data: caffeineItems.map((i) => ({
-        userId,
-        date,
-        mg: Math.round(i.caffeineMg!),
-        source: i.name,
-        time: null,
-      })),
-    });
-  }
 
   return NextResponse.json({ log });
 }

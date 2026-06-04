@@ -63,11 +63,12 @@ export default function FoodSection({ date, userId, isOwner }: FoodSectionProps)
         const ex = seen.get(key)!;
         seen.set(key, {
           ...ex,
-          calories: ex.calories + item.calories,
-          protein:  +(ex.protein  + item.protein).toFixed(1),
-          carbs:    +(ex.carbs    + item.carbs).toFixed(1),
-          fat:      +(ex.fat      + item.fat).toFixed(1),
-          quantity: addQuantities(ex.quantity, item.quantity),
+          calories:   ex.calories + item.calories,
+          protein:    +(ex.protein  + item.protein).toFixed(1),
+          carbs:      +(ex.carbs    + item.carbs).toFixed(1),
+          fat:        +(ex.fat      + item.fat).toFixed(1),
+          quantity:   addQuantities(ex.quantity, item.quantity),
+          caffeineMg: (ex.caffeineMg ?? 0) + (item.caffeineMg ?? 0) || undefined,
         });
       } else {
         seen.set(key, { ...item });
@@ -101,7 +102,24 @@ export default function FoodSection({ date, userId, isOwner }: FoodSectionProps)
   }
 
   async function handleItemsUpdated(items: FoodItem[]) {
+    // Detect caffeinated items that weren't in the log before this update
+    const existingNames = new Set(allItems.map((i) => i.name.toLowerCase().trim()));
+    const newCaffeineItems = items.filter(
+      (i) => (i.caffeineMg ?? 0) > 0 && !existingNames.has(i.name.toLowerCase().trim())
+    );
+
     await saveItems(items);
+
+    // Auto-add caffeine log entries for genuinely new caffeinated items
+    await Promise.all(
+      newCaffeineItems.map((i) =>
+        fetch("/api/caffeine", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ date, mg: Math.round(i.caffeineMg!), source: i.name, time: null }),
+        })
+      )
+    );
   }
 
   async function handleClearAll() {
