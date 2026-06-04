@@ -14,7 +14,7 @@ Rules:
 - Only modify items the user explicitly mentions — copy all other items to the output exactly as given, with their exact existing calorie and macro values unchanged
 - Return JSON with exactly two keys: "items" (complete updated list) and "reply" (one sentence summary)
 
-Each item: name (string), quantity (string), calories (integer kcal), protein (number g), carbs (number g), fat (number g)
+Each item: name (string), quantity (string), calories (integer kcal), protein (number g), carbs (number g), fat (number g). If the item contains caffeine (coffee, espresso, tea, matcha, energy drink, etc.), also include caffeineMg (integer, milligrams). Common values: black coffee 8oz=95mg, espresso shot=63mg, latte/cappuccino=63mg per shot, black tea 8oz=47mg, green tea 8oz=28mg, matcha 8oz=70mg. Omit caffeineMg for items without caffeine.
 
 Respond with only valid JSON, no explanation.`;
 
@@ -30,9 +30,10 @@ export async function POST(req: NextRequest) {
 
   const currentLog = currentItems.length === 0
     ? "(empty)"
-    : currentItems.map((it, i) =>
-        `${i + 1}. ${it.name} — ${it.quantity} — ${it.calories} cal, ${it.protein}g protein, ${it.carbs}g carbs, ${it.fat}g fat`
-      ).join("\n");
+    : currentItems.map((it, i) => {
+        const base = `${i + 1}. ${it.name} — ${it.quantity} — ${it.calories} cal, ${it.protein}g protein, ${it.carbs}g carbs, ${it.fat}g fat`;
+        return it.caffeineMg ? `${base}, ${it.caffeineMg}mg caffeine` : base;
+      }).join("\n");
 
   const response = await client.messages.create({
     model: "claude-sonnet-4-6",
@@ -66,7 +67,7 @@ export async function POST(req: NextRequest) {
         (c) => c.name.toLowerCase() === item.name.toLowerCase()
       );
       if (!original || userMentionedItem(item.name)) return item;
-      return { ...item, calories: original.calories, protein: original.protein, carbs: original.carbs, fat: original.fat };
+      return { ...item, calories: original.calories, protein: original.protein, carbs: original.carbs, fat: original.fat, caffeineMg: original.caffeineMg };
     });
 
     const { items: validItems, dropped } = filterZeroCalItems(guardedItems);
