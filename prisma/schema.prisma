@@ -21,8 +21,20 @@ model User {
   stats        UserStats?
   exercises    Exercise[]
   prEntries    PREntry[]
-  stretchLogs  StretchLog[]
-  waterLogs    WaterLog[]
+  stretchLogs   StretchLog[]
+  waterLogs     WaterLog[]
+  caffeineLogs  CaffeineLog[]
+}
+
+model CaffeineLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  date      String   // "YYYY-MM-DD"
+  mg        Int
+  time      String?  // "HH:MM" 24h, null if unknown (e.g. auto-added from food log)
+  source    String?  // "Coffee", "Espresso", etc.
+  createdAt DateTime @default(now())
 }
 
 model WaterLog {

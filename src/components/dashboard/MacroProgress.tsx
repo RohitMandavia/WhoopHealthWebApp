@@ -245,7 +245,7 @@ function StretchButton({ date, userId, isOwner }: StretchButtonProps) {
         ].join(" ")}
       >
         <span>{done ? "✓" : "○"}</span>
-        {done ? "Stretched today" : "Stretched today?"}
+        Stretched today
       </button>
       {celebrating && STRETCH_PARTS.map((emoji, i) => (
         <span key={i} className="vit-particle" style={{ left: `${20 + i * 12}%`, bottom: "50%", animationDelay: `${i * 0.07}s` }}>
@@ -300,7 +300,7 @@ function WaterButton({ date, userId, isOwner }: StretchButtonProps) {
         ].join(" ")}
       >
         <span>{done ? "✓" : "○"}</span>
-        {done ? "Drank enough water" : "Drank enough water?"}
+        Drank enough water
       </button>
       {celebrating && WATER_PARTS.map((emoji, i) => (
         <span key={i} className="vit-particle" style={{ left: `${20 + i * 12}%`, bottom: "50%", animationDelay: `${i * 0.07}s` }}>

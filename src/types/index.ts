@@ -5,6 +5,7 @@ export interface FoodItem {
   protein: number;
   carbs: number;
   fat: number;
+  caffeineMg?: number; // only present for caffeinated items
 }
 
 export interface FoodLog {
