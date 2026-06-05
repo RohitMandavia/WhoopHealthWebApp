@@ -384,7 +384,7 @@ export default function MacroProgress({ items, date, userId, isOwner }: Props) {
         <Ring
           label="Protein" current={current.protein} target={targets.protein} unit="g" decimals={1}
           color={macroRingColor(proteinProgress, calProgress, true)}
-          size={82}
+          size={82} showRemaining
         />
         <Ring
           label="Carbs" current={current.carbs} target={targets.carbs} unit="g" decimals={1}
