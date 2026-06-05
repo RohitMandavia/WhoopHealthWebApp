@@ -10,20 +10,20 @@ interface PresetManagerProps {
   onPresetsChanged: (presets: FoodPreset[]) => void;
 }
 
-const EMPTY_FORM = { name: "", quantity: "", calories: "", protein: "", carbs: "", fat: "", caffeineMg: "" };
+const EMPTY_FORM = { name: "", quantity: "", calories: "", protein: "", carbs: "", fat: "", caffeineMg: "", variableQty: false };
 
 export default function PresetManager({ presets, onClose, onPresetsChanged }: PresetManagerProps) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  function field(key: keyof typeof EMPTY_FORM) {
+  function field(key: Exclude<keyof typeof EMPTY_FORM, "variableQty">) {
     return (
       <input
         type={key === "name" || key === "quantity" ? "text" : "number"}
         step="0.1"
         placeholder={key.charAt(0).toUpperCase() + key.slice(1)}
-        value={form[key]}
+        value={form[key] as string}
         onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
         className="rounded border border-input bg-background px-2 py-1 text-sm w-full"
       />
@@ -40,6 +40,7 @@ export default function PresetManager({ presets, onClose, onPresetsChanged }: Pr
       carbs: String(preset.carbs),
       fat: String(preset.fat),
       caffeineMg: preset.caffeineMg != null ? String(preset.caffeineMg) : "",
+      variableQty: preset.variableQty ?? false,
     });
   }
 
@@ -60,6 +61,7 @@ export default function PresetManager({ presets, onClose, onPresetsChanged }: Pr
       carbs: Number(form.carbs) || 0,
       fat: Number(form.fat) || 0,
       caffeineMg: form.caffeineMg ? Math.round(Number(form.caffeineMg)) : null,
+      variableQty: form.variableQty,
     };
 
     if (editingId) {
@@ -110,6 +112,10 @@ export default function PresetManager({ presets, onClose, onPresetsChanged }: Pr
                 {field("carbs")}
                 {field("fat")}
                 {field("caffeineMg")}
+                <div className="col-span-6 flex items-center gap-2">
+                  <input type="checkbox" id="vq-edit" checked={form.variableQty} onChange={(e) => setForm((f) => ({ ...f, variableQty: e.target.checked }))} className="rounded" />
+                  <label htmlFor="vq-edit" className="text-xs text-muted-foreground">Ask for quantity when adding (macros scale per the base amount above)</label>
+                </div>
                 <div className="col-span-6 flex gap-2">
                   <Button size="sm" className="h-7 text-xs" onClick={handleSave} disabled={saving}>Save</Button>
                   <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={cancelEdit}>Cancel</Button>
@@ -119,7 +125,7 @@ export default function PresetManager({ presets, onClose, onPresetsChanged }: Pr
               <div key={preset.id} className="flex items-center justify-between text-sm py-1 border-b last:border-0">
                 <div>
                   <span className="font-medium">{preset.name}</span>
-                  <span className="text-muted-foreground ml-2 text-xs">{preset.quantity} · {preset.calories} cal · {preset.protein}g P · {preset.carbs}g C · {preset.fat}g F{preset.caffeineMg ? ` · ${preset.caffeineMg}mg caffeine` : ""}</span>
+                  <span className="text-muted-foreground ml-2 text-xs">{preset.quantity} · {preset.calories} cal · {preset.protein}g P · {preset.carbs}g C · {preset.fat}g F{preset.caffeineMg ? ` · ${preset.caffeineMg}mg caffeine` : ""}{preset.variableQty ? " · scales" : ""}</span>
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => startEdit(preset)} className="text-xs text-muted-foreground hover:text-foreground">Edit</button>
@@ -144,7 +150,11 @@ export default function PresetManager({ presets, onClose, onPresetsChanged }: Pr
             {field("fat")}
             {field("caffeineMg")}
           </div>
-          <p className="text-xs text-muted-foreground">Name · Quantity · Calories · Protein (g) · Carbs (g) · Fat (g) · Caffeine (mg, optional)</p>
+          <div className="flex items-center gap-2">
+            <input type="checkbox" id="vq-add" checked={form.variableQty} onChange={(e) => setForm((f) => ({ ...f, variableQty: e.target.checked }))} className="rounded" />
+            <label htmlFor="vq-add" className="text-xs text-muted-foreground">Ask for quantity when adding (macros scale per the base amount above)</label>
+          </div>
+          <p className="text-xs text-muted-foreground">Name · Quantity (base) · Calories · Protein (g) · Carbs (g) · Fat (g) · Caffeine (mg, optional)</p>
           <Button size="sm" className="h-7 text-xs" onClick={handleSave} disabled={saving || !form.name.trim() || !form.calories}>
             {saving ? "Saving…" : "Add Preset"}
           </Button>

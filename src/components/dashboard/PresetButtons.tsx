@@ -29,7 +29,7 @@ export default function PresetButtons({
   const inputRef = useRef<HTMLInputElement>(null);
 
   function needsPrompt(preset: FoodPreset) {
-    return preset.quantity === "1 serving";
+    return preset.variableQty || preset.quantity === "1 serving";
   }
 
   function openPreset(preset: FoodPreset) {
@@ -134,6 +134,9 @@ export default function PresetButtons({
             }}
             className="w-20 rounded border border-input bg-background px-2 py-1 text-xs"
           />
+          {parseQuantity(activePreset.quantity)?.unit && (
+            <span className="text-xs text-muted-foreground">{parseQuantity(activePreset.quantity)!.unit}</span>
+          )}
           <button
             onClick={() => handleAdd(activePreset)}
             className="px-2.5 py-1 rounded bg-primary text-primary-foreground text-xs font-medium"

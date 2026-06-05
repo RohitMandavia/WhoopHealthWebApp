@@ -173,7 +173,8 @@ model FoodPreset {
   protein   Float
   carbs     Float
   fat       Float
-  caffeineMg Int?
-  sortOrder Int      @default(0)
+  caffeineMg  Int?
+  variableQty Boolean @default(false)
+  sortOrder   Int     @default(0)
   createdAt DateTime @default(now())
 }

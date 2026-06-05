@@ -19,9 +19,9 @@ export async function POST(req: NextRequest) {
   const userId = getCurrentUserId(req);
   if (!userId) return NextResponse.json({ error: "not_logged_in" }, { status: 401 });
 
-  const { name, quantity, calories, protein, carbs, fat, caffeineMg } = await req.json();
+  const { name, quantity, calories, protein, carbs, fat, caffeineMg, variableQty } = await req.json();
   const preset = await prisma.foodPreset.create({
-    data: { userId, name, quantity, calories, protein, carbs, fat, caffeineMg: caffeineMg ?? null },
+    data: { userId, name, quantity, calories, protein, carbs, fat, caffeineMg: caffeineMg ?? null, variableQty: variableQty ?? false },
   });
   return NextResponse.json({ preset });
 }

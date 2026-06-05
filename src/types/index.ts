@@ -61,6 +61,7 @@ export interface FoodPreset {
   carbs: number;
   fat: number;
   caffeineMg?: number;
+  variableQty?: boolean;
   sortOrder: number;
 }
 
