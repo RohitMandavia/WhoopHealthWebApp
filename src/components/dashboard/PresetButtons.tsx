@@ -28,9 +28,13 @@ export default function PresetButtons({
   const [qtyInput, setQtyInput] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
+  function needsPrompt(preset: FoodPreset) {
+    return preset.quantity === "1 serving";
+  }
+
   function openPreset(preset: FoodPreset) {
     const parsed = parseQuantity(preset.quantity);
-    setQtyInput(parsed ? String(parsed.num) : preset.quantity);
+    setQtyInput(parsed ? String(parsed.num) : "");
     setActive(preset.id);
     setTimeout(() => inputRef.current?.focus(), 0);
   }
@@ -91,7 +95,12 @@ export default function PresetButtons({
             disabled={readOnly}
             onClick={() => {
               if (readOnly) return;
-              active === preset.id ? setActive(null) : openPreset(preset);
+              if (active === preset.id) { setActive(null); return; }
+              if (needsPrompt(preset)) {
+                openPreset(preset);
+              } else {
+                handleAdd(preset);
+              }
             }}
           >
             {!readOnly && "+ "}{preset.name}
@@ -116,6 +125,7 @@ export default function PresetButtons({
             type="number"
             min="0"
             step="any"
+            placeholder="qty"
             value={qtyInput}
             onChange={(e) => setQtyInput(e.target.value)}
             onKeyDown={(e) => {
@@ -124,9 +134,6 @@ export default function PresetButtons({
             }}
             className="w-20 rounded border border-input bg-background px-2 py-1 text-xs"
           />
-          {parseQuantity(activePreset.quantity)?.unit && (
-            <span className="text-xs text-muted-foreground">{parseQuantity(activePreset.quantity)!.unit}</span>
-          )}
           <button
             onClick={() => handleAdd(activePreset)}
             className="px-2.5 py-1 rounded bg-primary text-primary-foreground text-xs font-medium"
