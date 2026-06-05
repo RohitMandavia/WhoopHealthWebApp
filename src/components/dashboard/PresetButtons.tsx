@@ -26,6 +26,7 @@ export default function PresetButtons({
 }: PresetButtonsProps) {
   const [active, setActive] = useState<string | null>(null);
   const [qtyInput, setQtyInput] = useState("");
+  const [unitInput, setUnitInput] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   function needsPrompt(preset: FoodPreset) {
@@ -35,6 +36,7 @@ export default function PresetButtons({
   function openPreset(preset: FoodPreset) {
     const parsed = parseQuantity(preset.quantity);
     setQtyInput(parsed ? String(parsed.num) : "");
+    setUnitInput(parsed ? parsed.unit : "");
     setActive(preset.id);
     setTimeout(() => inputRef.current?.focus(), 0);
   }
@@ -48,7 +50,8 @@ export default function PresetButtons({
       const newNum = parseFloat(qtyInput);
       if (!isNaN(newNum) && newNum > 0) {
         scale = newNum / parsed.num;
-        finalQty = parsed.unit ? `${newNum} ${parsed.unit}` : String(newNum);
+        const unit = unitInput.trim() || parsed.unit;
+        finalQty = unit ? `${newNum} ${unit}` : String(newNum);
       }
     }
 
@@ -65,6 +68,7 @@ export default function PresetButtons({
     onItemsUpdated?.([...currentItems, newItem]);
     setActive(null);
     setQtyInput("");
+    setUnitInput("");
   }
 
   const readOnly = !onItemsUpdated;
@@ -134,9 +138,17 @@ export default function PresetButtons({
             }}
             className="w-20 rounded border border-input bg-background px-2 py-1 text-xs"
           />
-          {parseQuantity(activePreset.quantity)?.unit && (
-            <span className="text-xs text-muted-foreground">{parseQuantity(activePreset.quantity)!.unit}</span>
-          )}
+          <input
+            type="text"
+            placeholder="unit (g, ml, slices…)"
+            value={unitInput}
+            onChange={(e) => setUnitInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleAdd(activePreset);
+              if (e.key === "Escape") setActive(null);
+            }}
+            className="w-32 rounded border border-input bg-background px-2 py-1 text-xs"
+          />
           <button
             onClick={() => handleAdd(activePreset)}
             className="px-2.5 py-1 rounded bg-primary text-primary-foreground text-xs font-medium"
