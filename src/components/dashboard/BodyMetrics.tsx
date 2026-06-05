@@ -17,49 +17,22 @@ interface Stats {
   sleepGoalHours: number | null;
 }
 
-interface TDEEResult {
-  kcal: number;
-  bmr: number;
-  stepKcal: number | null;  // null = no steps, fell back to 1.2 multiplier
-  workoutKcal: number;
-}
-
-function estimateWorkoutKcal(workout: WhoopDaily["workouts"][number], weightKg: number, age: number): number {
+export function estimateWorkoutKcal(workout: WhoopDaily["workouts"][number], weightKg: number, age: number): number {
   const durationMin = (new Date(workout.end).getTime() - new Date(workout.start).getTime()) / 60000;
   if (durationMin <= 0) return 0;
 
+  // Strain-based estimate: map Whoop strain (0–21) to MET (3–12)
+  const met = 3 + (workout.strain ?? 5) * 0.43;
+  const strainEstimate = Math.round(met * weightKg * (durationMin / 60));
+
   if (workout.avgHeartRate != null) {
-    // Keytel et al. — average of male/female coefficients for a sex-agnostic estimate
+    // Keytel et al. heart-rate formula, averaged with strain-based estimate
     const calPerMin = (-37.75 + 0.539 * workout.avgHeartRate + 0.036 * weightKg + 0.138 * age) / 4.184;
-    return Math.max(0, Math.round(calPerMin * durationMin));
+    const hrEstimate = Math.max(0, Math.round(calPerMin * durationMin));
+    return Math.round((hrEstimate + strainEstimate) / 2);
   }
 
-  // Fallback: map Whoop strain (0–21) to an approximate MET value (3–12)
-  const met = 3 + (workout.strain ?? 5) * 0.43;
-  return Math.round(met * weightKg * (durationMin / 60));
-}
-
-function calcTDEE(stats: Stats, steps: number | null, whoop: WhoopDaily | null): TDEEResult | null {
-  if (stats.weightLbs == null || stats.bodyFatPct == null) return null;
-
-  const weightKg = stats.weightLbs * 0.453592;
-  const lbmKg = weightKg * (1 - stats.bodyFatPct / 100);
-  const bmr = Math.round(370 + 21.6 * lbmKg);
-  const age = stats.age ?? 30;
-
-  const workoutKcal = whoop?.workouts.reduce(
-    (sum, w) => sum + estimateWorkoutKcal(w, weightKg, age),
-    0
-  ) ?? 0;
-
-  const stepKcal = steps != null ? Math.round(steps * weightKg * 0.0006) : null;
-
-  return {
-    kcal: Math.round(bmr * 1.2) + (stepKcal ?? 0) + workoutKcal,
-    bmr,
-    stepKcal,
-    workoutKcal,
-  };
+  return strainEstimate;
 }
 
 function inchesToFtIn(totalIn: number) {
@@ -79,6 +52,7 @@ export default function BodyMetrics({ date, userId, isOwner = true }: BodyMetric
   const [whoop, setWhoop] = useState<WhoopDaily | null>(null);
   const [steps, setSteps] = useState<number | null>(null);
   const [sleepDebt, setSleepDebt] = useState<number | null>(null);
+  const [calOverrides, setCalOverrides] = useState<Record<string, number>>({});
   const [stepInput, setStepInput] = useState("");
   const [savingSteps, setSavingSteps] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -125,6 +99,10 @@ export default function BodyMetrics({ date, userId, isOwner = true }: BodyMetric
       .then((r) => r.json())
       .then((d) => { if (!d.error) setWhoop(d); })
       .catch(() => {});
+    fetch(`/api/workout-calories?userId=${userId}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.overrides) setCalOverrides(d.overrides); })
+      .catch(() => {});
   }, [date, userId]);
 
   useEffect(() => {
@@ -136,6 +114,16 @@ export default function BodyMetrics({ date, userId, isOwner = true }: BodyMetric
       })
       .catch(() => setSteps(null));
   }, [date, userId]);
+
+  async function handleSaveWorkoutCal(workoutKey: string, kcal: number) {
+    setCalOverrides((prev) => ({ ...prev, [workoutKey]: kcal }));
+    await fetch("/api/workout-calories", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ workoutKey, kcal }),
+    });
+    window.dispatchEvent(new CustomEvent("stats-updated"));
+  }
 
   async function handleSaveSteps() {
     setSavingSteps(true);
@@ -198,7 +186,21 @@ export default function BodyMetrics({ date, userId, isOwner = true }: BodyMetric
     ? (() => { const { ft, inches } = inchesToFtIn(stats.heightIn); return `${ft}'${inches}"`; })()
     : "—";
 
-  const tdee = stats ? calcTDEE(stats, steps, whoop) : null;
+  const weightKg = stats?.weightLbs ? stats.weightLbs * 0.453592 : 0;
+  const lbmKg = weightKg * (1 - (stats?.bodyFatPct ?? 0) / 100);
+  const bmr = stats?.weightLbs && stats?.bodyFatPct ? Math.round(370 + 21.6 * lbmKg) : null;
+  const age = stats?.age ?? 30;
+  const stepKcal = steps != null && weightKg ? Math.round(steps * weightKg * 0.0006) : null;
+
+  const perWorkout: { key: string; name: string; durationMin: number; estimated: number; kcal: number }[] =
+    (whoop?.workouts ?? []).map((w) => {
+      const estimated = estimateWorkoutKcal(w, weightKg, age);
+      const kcal = calOverrides[w.start] ?? estimated;
+      const durationMin = Math.round((new Date(w.end).getTime() - new Date(w.start).getTime()) / 60000);
+      return { key: w.start, name: w.sportName, durationMin, estimated, kcal };
+    });
+  const workoutKcal = perWorkout.reduce((s, w) => s + w.kcal, 0);
+  const tdeeKcal = bmr ? Math.round(bmr * 1.2) + (stepKcal ?? 0) + workoutKcal : null;
 
   return (
     <div className="rounded-lg border bg-card p-4">
@@ -430,15 +432,24 @@ export default function BodyMetrics({ date, userId, isOwner = true }: BodyMetric
             </div>
 
             {/* TDEE */}
-            {tdee && (
-              <div>
+            {tdeeKcal != null && bmr != null && (
+              <div className="space-y-1.5">
                 <p className="text-xs text-muted-foreground">Est. TDEE</p>
-                <p className="text-sm font-semibold mt-0.5">{tdee.kcal.toLocaleString()} kcal</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  BMR {tdee.bmr.toLocaleString()} × 1.2
-                  {tdee.stepKcal != null && ` + ${tdee.stepKcal.toLocaleString()} steps`}
-                  {tdee.workoutKcal > 0 && ` + ${tdee.workoutKcal.toLocaleString()} workout`}
+                <p className="text-sm font-semibold">{tdeeKcal.toLocaleString()} kcal</p>
+                <p className="text-xs text-muted-foreground">
+                  BMR {bmr.toLocaleString()} × 1.2{stepKcal != null ? ` + ${stepKcal.toLocaleString()} steps` : ""}
                 </p>
+                {perWorkout.map((w) => (
+                  <WorkoutCalRow
+                    key={w.key}
+                    name={w.name}
+                    durationMin={w.durationMin}
+                    kcal={w.kcal}
+                    estimated={w.estimated}
+                    isOwner={isOwner}
+                    onSave={(kcal) => handleSaveWorkoutCal(w.key, kcal)}
+                  />
+                ))}
               </div>
             )}
           </div>
@@ -454,6 +465,55 @@ export default function BodyMetrics({ date, userId, isOwner = true }: BodyMetric
             />
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+interface WorkoutCalRowProps {
+  name: string;
+  durationMin: number;
+  kcal: number;
+  estimated: number;
+  isOwner: boolean;
+  onSave: (kcal: number) => void;
+}
+
+function WorkoutCalRow({ name, durationMin, kcal, estimated, isOwner, onSave }: WorkoutCalRowProps) {
+  const [input, setInput] = useState(String(kcal));
+
+  function handleBlur() {
+    const val = parseInt(input, 10);
+    if (!isNaN(val) && val >= 0 && val !== kcal) onSave(val);
+    else setInput(String(kcal));
+  }
+
+  return (
+    <div className="flex items-center gap-2 text-xs">
+      <span className="text-muted-foreground truncate flex-1">
+        {name} · {durationMin} min
+      </span>
+      {isOwner ? (
+        <div className="flex items-center gap-1 shrink-0">
+          <input
+            type="number"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onBlur={handleBlur}
+            onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+            className="w-16 rounded border border-input bg-background px-1.5 py-0.5 text-xs text-right"
+          />
+          <span className="text-muted-foreground">kcal</span>
+          {kcal !== estimated && (
+            <button
+              onClick={() => { setInput(String(estimated)); onSave(estimated); }}
+              className="text-muted-foreground hover:text-foreground"
+              title="Reset to estimate"
+            >↺</button>
+          )}
+        </div>
+      ) : (
+        <span className="text-muted-foreground shrink-0">{kcal} kcal</span>
       )}
     </div>
   );

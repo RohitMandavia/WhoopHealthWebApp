@@ -23,7 +23,19 @@ model User {
   prEntries    PREntry[]
   stretchLogs   StretchLog[]
   waterLogs     WaterLog[]
-  caffeineLogs  CaffeineLog[]
+  caffeineLogs        CaffeineLog[]
+  workoutCalOverrides WorkoutCalOverride[]
+}
+
+model WorkoutCalOverride {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  workoutKey String   // workout start ISO timestamp
+  kcal       Int
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, workoutKey])
 }
 
 model CaffeineLog {

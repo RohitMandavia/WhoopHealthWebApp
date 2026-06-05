@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { calcMacroTargets, type Mode, type MacroTargets } from "@/lib/macros";
+import { estimateWorkoutKcal } from "./BodyMetrics";
 import type { FoodItem, WhoopDaily } from "@/types";
 
 interface Props {
@@ -24,16 +25,6 @@ function calcBMR(weightLbs: number, bodyFatPct: number): number {
   return Math.round(370 + 21.6 * lbmKg);
 }
 
-function estimateWorkoutKcal(workout: WhoopDaily["workouts"][number], weightKg: number, age: number): number {
-  const durationMin = (new Date(workout.end).getTime() - new Date(workout.start).getTime()) / 60000;
-  if (durationMin <= 0) return 0;
-  if (workout.avgHeartRate != null) {
-    const calPerMin = (-37.75 + 0.539 * workout.avgHeartRate + 0.036 * weightKg + 0.138 * age) / 4.184;
-    return Math.max(0, Math.round(calPerMin * durationMin));
-  }
-  const met = 3 + (workout.strain ?? 5) * 0.43;
-  return Math.round(met * weightKg * (durationMin / 60));
-}
 
 const C = {
   green:  "#4ade80",
@@ -315,6 +306,7 @@ export default function MacroProgress({ items, date, userId, isOwner }: Props) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [steps, setSteps] = useState<number | null>(null);
   const [whoop, setWhoop] = useState<WhoopDaily | null>(null);
+  const [calOverrides, setCalOverrides] = useState<Record<string, number>>({});
 
   useEffect(() => {
     function refresh() {
@@ -329,6 +321,10 @@ export default function MacroProgress({ items, date, userId, isOwner }: Props) {
         .then((r) => r.json())
         .then((d) => { if (!d.error) setWhoop(d); })
         .catch(() => {});
+      fetch(`/api/workout-calories?userId=${userId}`)
+        .then((r) => r.ok ? r.json() : null)
+        .then((d) => { if (d?.overrides) setCalOverrides(d.overrides); })
+        .catch(() => {});
     }
     refresh();
     window.addEventListener("stats-updated", refresh);
@@ -341,7 +337,7 @@ export default function MacroProgress({ items, date, userId, isOwner }: Props) {
   const weightKg = stats.weightLbs * 0.453592;
   const bmr = calcBMR(stats.weightLbs, stats.bodyFatPct);
   const stepKcal = steps != null ? Math.round(steps * weightKg * 0.0006) : 0;
-  const workoutKcal = whoop?.workouts.reduce((sum, w) => sum + estimateWorkoutKcal(w, weightKg, 30), 0) ?? 0;
+  const workoutKcal = whoop?.workouts.reduce((sum, w) => sum + (calOverrides[w.start] ?? estimateWorkoutKcal(w, weightKg, 30)), 0) ?? 0;
   const tdee = Math.round(bmr * 1.2) + stepKcal + workoutKcal;
   const goalRate = stats.goalRate ?? 1;
   const targets: MacroTargets = calcMacroTargets(tdee, stats.weightLbs, mode, goalRate);
