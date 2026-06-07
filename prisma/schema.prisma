@@ -97,6 +97,7 @@ model UserStats {
   heightIn        Float?   // stored as total inches; displayed as ft + in
   age             Int?
   bodyFatPct      Float?
+  sex             String?  // "male" | "female"
   mode            String?  // "cutting" | "maintenance" | "bulking"
   goalRate        Float?   // lbs per week: 0.5 or 1.0
   targetWeightLbs Float?

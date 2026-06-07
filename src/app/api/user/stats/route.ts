@@ -16,12 +16,12 @@ export async function PATCH(req: NextRequest) {
   const userId = getCurrentUserId(req);
   if (!userId) return NextResponse.json({ error: "not_logged_in" }, { status: 401 });
 
-  const { weightLbs, heightIn, age, bodyFatPct, mode, goalRate, targetWeightLbs, sleepGoalHours } = await req.json();
+  const { weightLbs, heightIn, age, bodyFatPct, sex, mode, goalRate, targetWeightLbs, sleepGoalHours } = await req.json();
 
   const stats = await prisma.userStats.upsert({
     where: { userId },
-    update: { weightLbs, heightIn, age, bodyFatPct, mode, goalRate, targetWeightLbs, sleepGoalHours },
-    create: { userId, weightLbs, heightIn, age, bodyFatPct, mode, goalRate, targetWeightLbs, sleepGoalHours },
+    update: { weightLbs, heightIn, age, bodyFatPct, sex, mode, goalRate, targetWeightLbs, sleepGoalHours },
+    create: { userId, weightLbs, heightIn, age, bodyFatPct, sex, mode, goalRate, targetWeightLbs, sleepGoalHours },
   });
 
   return NextResponse.json({ stats });

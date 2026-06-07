@@ -11,13 +11,19 @@ interface Stats {
   heightIn: number | null;
   age: number | null;
   bodyFatPct: number | null;
+  sex: string | null;
   mode: string | null;
   goalRate: number | null;
   targetWeightLbs: number | null;
   sleepGoalHours: number | null;
 }
 
-export function estimateWorkoutKcal(workout: WhoopDaily["workouts"][number], weightKg: number, age: number): number {
+export function estimateWorkoutKcal(
+  workout: WhoopDaily["workouts"][number],
+  weightKg: number,
+  age: number,
+  sex?: string | null,
+): number {
   const durationMin = (new Date(workout.end).getTime() - new Date(workout.start).getTime()) / 60000;
   if (durationMin <= 0) return 0;
 
@@ -26,8 +32,15 @@ export function estimateWorkoutKcal(workout: WhoopDaily["workouts"][number], wei
   const strainEstimate = Math.round(met * weightKg * (durationMin / 60));
 
   if (workout.avgHeartRate != null) {
-    // Keytel et al. heart-rate formula, averaged with strain-based estimate
-    const calPerMin = (-37.75 + 0.539 * workout.avgHeartRate + 0.036 * weightKg + 0.138 * age) / 4.184;
+    // Keytel et al. — sex-specific coefficients; fall back to averaged when sex unknown
+    let calPerMin: number;
+    if (sex === "male") {
+      calPerMin = (-55.0969 + 0.6309 * workout.avgHeartRate + 0.1988 * weightKg + 0.2017 * age) / 4.184;
+    } else if (sex === "female") {
+      calPerMin = (-20.4022 + 0.4472 * workout.avgHeartRate - 0.1263 * weightKg + 0.074  * age) / 4.184;
+    } else {
+      calPerMin = (-37.75   + 0.539  * workout.avgHeartRate + 0.036  * weightKg + 0.138  * age) / 4.184;
+    }
     const hrEstimate = Math.max(0, Math.round(calPerMin * durationMin));
     return Math.round((hrEstimate + strainEstimate) / 2);
   }
@@ -56,7 +69,7 @@ export default function BodyMetrics({ date, userId, isOwner = true }: BodyMetric
   const [stepInput, setStepInput] = useState("");
   const [savingSteps, setSavingSteps] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ weightLbs: "", ft: "", inches: "", age: "", bodyFatPct: "", targetWeightLbs: "", sleepGoalHours: "8" });
+  const [form, setForm] = useState({ weightLbs: "", ft: "", inches: "", age: "", bodyFatPct: "", sex: "", targetWeightLbs: "", sleepGoalHours: "8" });
   const [saving, setSaving] = useState(false);
 
   async function handleSetMode(mode: Mode) {
@@ -148,6 +161,7 @@ export default function BodyMetrics({ date, userId, isOwner = true }: BodyMetric
       inches: inches !== "" ? String(inches) : "",
       age: stats.age != null ? String(stats.age) : "",
       bodyFatPct: stats.bodyFatPct != null ? String(stats.bodyFatPct) : "",
+      sex: stats.sex ?? "",
       targetWeightLbs: stats.targetWeightLbs != null ? String(stats.targetWeightLbs) : "",
       sleepGoalHours: stats.sleepGoalHours != null ? String(stats.sleepGoalHours) : "8",
     });
@@ -165,6 +179,7 @@ export default function BodyMetrics({ date, userId, isOwner = true }: BodyMetric
       heightIn,
       age: form.age ? Number(form.age) : null,
       bodyFatPct: form.bodyFatPct ? Number(form.bodyFatPct) : null,
+      sex: form.sex || null,
       targetWeightLbs: form.targetWeightLbs ? Number(form.targetWeightLbs) : null,
       sleepGoalHours: Number(form.sleepGoalHours) || 8,
     };
@@ -194,7 +209,7 @@ export default function BodyMetrics({ date, userId, isOwner = true }: BodyMetric
 
   const perWorkout: { key: string; name: string; durationMin: number; estimated: number; kcal: number }[] =
     (whoop?.workouts ?? []).map((w) => {
-      const estimated = estimateWorkoutKcal(w, weightKg, age);
+      const estimated = estimateWorkoutKcal(w, weightKg, age, stats?.sex);
       const kcal = calOverrides[w.start] ?? estimated;
       const durationMin = Math.round((new Date(w.end).getTime() - new Date(w.start).getTime()) / 60000);
       return { key: w.start, name: w.sportName, durationMin, estimated, kcal };
@@ -277,6 +292,24 @@ export default function BodyMetrics({ date, userId, isOwner = true }: BodyMetric
             </label>
           </div>
 
+          <div className="space-y-1">
+            <span className="text-xs text-muted-foreground">Biological Sex</span>
+            <div className="flex rounded-md border border-input overflow-hidden w-fit text-xs font-medium">
+              {(["male", "female"] as const).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setForm((f) => ({ ...f, sex: f.sex === s ? "" : s }))}
+                  className={`px-3 py-1.5 capitalize border-r border-input last:border-r-0 transition-colors ${
+                    form.sex === s ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <label className="space-y-1">
             <span className="text-xs text-muted-foreground">Target Weight (lbs)</span>
             <input
@@ -326,6 +359,7 @@ export default function BodyMetrics({ date, userId, isOwner = true }: BodyMetric
             <Metric label="Height" value={heightDisplay} />
             <Metric label="Age" value={stats?.age != null ? `${stats.age} yrs` : "—"} />
             <Metric label="Body Fat" value={stats?.bodyFatPct != null ? `${stats.bodyFatPct}%` : "—"} />
+            {stats?.sex && <Metric label="Sex" value={stats.sex.charAt(0).toUpperCase() + stats.sex.slice(1)} />}
             {stats?.targetWeightLbs != null && (
               <Metric label="Target" value={`${stats.targetWeightLbs} lbs`} />
             )}

@@ -15,6 +15,8 @@ interface Props {
 interface Stats {
   weightLbs: number | null;
   bodyFatPct: number | null;
+  age: number | null;
+  sex: string | null;
   mode: string | null;
   goalRate: number | null;
 }
@@ -337,7 +339,8 @@ export default function MacroProgress({ items, date, userId, isOwner }: Props) {
   const weightKg = stats.weightLbs * 0.453592;
   const bmr = calcBMR(stats.weightLbs, stats.bodyFatPct);
   const stepKcal = steps != null ? Math.round(steps * weightKg * 0.0006) : 0;
-  const workoutKcal = whoop?.workouts.reduce((sum, w) => sum + (calOverrides[w.start] ?? estimateWorkoutKcal(w, weightKg, 30)), 0) ?? 0;
+  const age = stats.age ?? 30;
+  const workoutKcal = whoop?.workouts.reduce((sum, w) => sum + (calOverrides[w.start] ?? estimateWorkoutKcal(w, weightKg, age, stats.sex)), 0) ?? 0;
   const tdee = Math.round(bmr * 1.2) + stepKcal + workoutKcal;
   const goalRate = stats.goalRate ?? 1;
   const targets: MacroTargets = calcMacroTargets(tdee, stats.weightLbs, mode, goalRate);
