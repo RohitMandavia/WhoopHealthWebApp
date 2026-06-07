@@ -14,7 +14,7 @@ Rules:
 - Only modify items the user explicitly mentions — copy all other items to the output exactly as given, with their exact existing calorie and macro values unchanged
 - Return JSON with exactly two keys: "items" (complete updated list) and "reply" (one sentence summary)
 
-Each item: name (string), quantity (string), calories (integer kcal), protein (number g), carbs (number g), fat (number g). If the item contains caffeine (coffee, espresso, tea, matcha, energy drink, etc.), also include caffeineMg (integer, milligrams). Common values: black coffee 8oz=95mg, espresso shot=63mg, latte/cappuccino=63mg per shot, black tea 8oz=47mg, green tea 8oz=28mg, matcha 8oz=70mg. Omit caffeineMg for items without caffeine.
+Each item: name (string), quantity (string), calories (integer kcal), protein (number g), carbs (number g), fat (number g). If the item contains caffeine (coffee, espresso, tea, matcha, energy drink, pre-workout, etc.), also include caffeineMg (integer, milligrams). IMPORTANT: caffeineMg must be scaled to the actual quantity logged — if the user logged half a serving, caffeineMg should be half the full-serving caffeine. Do NOT return the per-serving label amount unless the full serving was consumed. Common full-serving values: black coffee 8oz=95mg, espresso shot=63mg, latte/cappuccino=63mg per shot, black tea 8oz=47mg, green tea 8oz=28mg, matcha 8oz=70mg, pre-workout full scoop=150-300mg. Omit caffeineMg for items without caffeine.
 
 Respond with only valid JSON, no explanation.`;
 
