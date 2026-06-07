@@ -19,6 +19,10 @@ interface Stats {
   sex: string | null;
   mode: string | null;
   goalRate: number | null;
+  calGoalOverride: number | null;
+  proteinGoalOverride: number | null;
+  carbsGoalOverride: number | null;
+  fatGoalOverride: number | null;
 }
 
 function calcBMR(weightLbs: number, bodyFatPct: number): number {
@@ -309,6 +313,8 @@ export default function MacroProgress({ items, date, userId, isOwner }: Props) {
   const [steps, setSteps] = useState<number | null>(null);
   const [whoop, setWhoop] = useState<WhoopDaily | null>(null);
   const [calOverrides, setCalOverrides] = useState<Record<string, number>>({});
+  const [editingGoals, setEditingGoals] = useState(false);
+  const [goalForm, setGoalForm] = useState({ kcal: "", protein: "", carbs: "", fat: "" });
 
   useEffect(() => {
     function refresh() {
@@ -343,7 +349,14 @@ export default function MacroProgress({ items, date, userId, isOwner }: Props) {
   const workoutKcal = whoop?.workouts.reduce((sum, w) => sum + (calOverrides[w.start] ?? estimateWorkoutKcal(w, weightKg, age, stats.sex)), 0) ?? 0;
   const tdee = Math.round(bmr * 1.2) + stepKcal + workoutKcal;
   const goalRate = stats.goalRate ?? 1;
-  const targets: MacroTargets = calcMacroTargets(tdee, stats.weightLbs, mode, goalRate);
+  const calculated: MacroTargets = calcMacroTargets(tdee, stats.weightLbs, mode, goalRate);
+  const hasOverride = stats.calGoalOverride != null || stats.proteinGoalOverride != null || stats.carbsGoalOverride != null || stats.fatGoalOverride != null;
+  const targets: MacroTargets = {
+    kcal:    stats.calGoalOverride     ?? calculated.kcal,
+    protein: stats.proteinGoalOverride ?? calculated.protein,
+    carbs:   stats.carbsGoalOverride   ?? calculated.carbs,
+    fat:     stats.fatGoalOverride     ?? calculated.fat,
+  };
 
   const current = {
     kcal:    items.reduce((s, i) => s + i.calories, 0),
@@ -360,12 +373,66 @@ export default function MacroProgress({ items, date, userId, isOwner }: Props) {
   const modeLabel: Record<Mode, string> = { cutting: "Cutting", maintenance: "Maintenance", bulking: "Bulking" };
   const modeColor: Record<Mode, string> = { cutting: "text-blue-500", maintenance: "text-green-500", bulking: "text-orange-500" };
 
+  async function handleSaveGoals() {
+    const body = {
+      calGoalOverride:     goalForm.kcal    ? parseInt(goalForm.kcal)    : null,
+      proteinGoalOverride: goalForm.protein ? parseInt(goalForm.protein) : null,
+      carbsGoalOverride:   goalForm.carbs   ? parseInt(goalForm.carbs)   : null,
+      fatGoalOverride:     goalForm.fat     ? parseInt(goalForm.fat)     : null,
+    };
+    await fetch("/api/user/stats", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    setStats((s) => s ? { ...s, ...body } : s);
+    setEditingGoals(false);
+    window.dispatchEvent(new CustomEvent("stats-updated"));
+  }
+
+  async function handleResetGoals() {
+    const body = { calGoalOverride: null, proteinGoalOverride: null, carbsGoalOverride: null, fatGoalOverride: null };
+    await fetch("/api/user/stats", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    setStats((s) => s ? { ...s, ...body } : s);
+    setEditingGoals(false);
+    window.dispatchEvent(new CustomEvent("stats-updated"));
+  }
+
   return (
     <div className="rounded-lg border bg-card p-4 space-y-5">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold">Daily Goals</h3>
-        <span className={`text-xs font-medium ${modeColor[mode]}`}>{modeLabel[mode]}</span>
+        <div className="flex items-center gap-2">
+          {hasOverride && !editingGoals && (
+            <button onClick={handleResetGoals} className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2">Reset to auto</button>
+          )}
+          {isOwner && (
+            <button
+              onClick={() => { setGoalForm({ kcal: String(targets.kcal), protein: String(targets.protein), carbs: String(targets.carbs), fat: String(targets.fat) }); setEditingGoals((v) => !v); }}
+              className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+            >
+              {editingGoals ? "Cancel" : "Edit goals"}
+            </button>
+          )}
+          <span className={`text-xs font-medium ${modeColor[mode]}`}>{modeLabel[mode]}{hasOverride ? " · custom" : ""}</span>
+        </div>
       </div>
+
+      {editingGoals && (
+        <div className="grid grid-cols-4 gap-2">
+          {(["kcal", "protein", "carbs", "fat"] as const).map((k) => (
+            <label key={k} className="space-y-0.5">
+              <span className="text-xs text-muted-foreground capitalize">{k === "kcal" ? "Calories" : k}</span>
+              <input
+                type="number"
+                value={goalForm[k]}
+                onChange={(e) => setGoalForm((f) => ({ ...f, [k]: e.target.value }))}
+                className="w-full rounded border border-input bg-background px-2 py-1 text-xs"
+              />
+            </label>
+          ))}
+          <div className="col-span-4 flex gap-2">
+            <button onClick={handleSaveGoals} className="px-3 py-1 rounded bg-primary text-primary-foreground text-xs font-medium">Save</button>
+            <button onClick={() => setEditingGoals(false)} className="px-3 py-1 rounded text-xs text-muted-foreground hover:text-foreground">Cancel</button>
+          </div>
+        </div>
+      )}
 
       {/* Centered large calorie ring */}
       <div className="flex justify-center">
