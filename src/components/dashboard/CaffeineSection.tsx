@@ -19,12 +19,14 @@ interface EntryRowProps {
   entry: CaffeineEntry;
   isOwner: boolean;
   onDelete: (id: string) => void;
-  onTimeUpdated: (id: string, time: string | null) => void;
+  onUpdated: (id: string, patch: Partial<CaffeineEntry>) => void;
 }
 
-function EntryRow({ entry, isOwner, onDelete, onTimeUpdated }: EntryRowProps) {
+function EntryRow({ entry, isOwner, onDelete, onUpdated }: EntryRowProps) {
   const [editingTime, setEditingTime] = useState(false);
+  const [editingMg, setEditingMg] = useState(false);
   const [timeVal, setTimeVal] = useState(entry.time ?? "");
+  const [mgVal, setMgVal] = useState(String(entry.mg));
 
   async function saveTime() {
     setEditingTime(false);
@@ -35,7 +37,19 @@ function EntryRow({ entry, isOwner, onDelete, onTimeUpdated }: EntryRowProps) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ time: newTime }),
     });
-    onTimeUpdated(entry.id, newTime);
+    onUpdated(entry.id, { time: newTime });
+  }
+
+  async function saveMg() {
+    setEditingMg(false);
+    const newMg = parseInt(mgVal, 10);
+    if (isNaN(newMg) || newMg <= 0 || newMg === entry.mg) { setMgVal(String(entry.mg)); return; }
+    await fetch(`/api/caffeine/${entry.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mg: newMg }),
+    });
+    onUpdated(entry.id, { mg: newMg });
   }
 
   return (
@@ -60,7 +74,25 @@ function EntryRow({ entry, isOwner, onDelete, onTimeUpdated }: EntryRowProps) {
             {entry.time ?? "—"}
           </button>
         )}
-        <span className="font-medium">{entry.mg} mg</span>
+        {editingMg ? (
+          <input
+            type="number"
+            value={mgVal}
+            autoFocus
+            onChange={(e) => setMgVal(e.target.value)}
+            onBlur={saveMg}
+            onKeyDown={(e) => { if (e.key === "Enter") saveMg(); if (e.key === "Escape") { setEditingMg(false); setMgVal(String(entry.mg)); } }}
+            className="rounded border border-input bg-background px-1 py-0.5 text-xs w-16"
+          />
+        ) : (
+          <button
+            onClick={() => isOwner && setEditingMg(true)}
+            className={`font-medium ${isOwner ? "hover:text-primary cursor-pointer" : ""}`}
+            title={isOwner ? "Click to edit" : undefined}
+          >
+            {entry.mg} mg
+          </button>
+        )}
         {entry.source && <span className="text-muted-foreground">{entry.source}</span>}
       </div>
       {isOwner && (
@@ -161,7 +193,7 @@ export default function CaffeineSection({ date, userId, isOwner }: Props) {
       {entries.length > 0 && (
         <div className="space-y-1">
           {entries.map((e) => (
-            <EntryRow key={e.id} entry={e} isOwner={isOwner} onDelete={handleDelete} onTimeUpdated={(id, time) => setEntries((prev) => prev.map((x) => x.id === id ? { ...x, time } : x))} />
+            <EntryRow key={e.id} entry={e} isOwner={isOwner} onDelete={handleDelete} onUpdated={(id, patch) => setEntries((prev) => prev.map((x) => x.id === id ? { ...x, ...patch } : x))} />
           ))}
         </div>
       )}

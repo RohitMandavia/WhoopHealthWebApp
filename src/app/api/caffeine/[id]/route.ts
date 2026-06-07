@@ -7,7 +7,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!userId) return NextResponse.json({ error: "not_logged_in" }, { status: 401 });
 
   const { id } = await params;
-  const { time } = await req.json() as { time: string | null };
+  const { time, mg } = await req.json() as { time?: string | null; mg?: number };
 
   const entry = await prisma.caffeineLog.findUnique({ where: { id } });
   if (!entry || entry.userId !== userId) {
@@ -16,7 +16,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const updated = await prisma.caffeineLog.update({
     where: { id },
-    data: { time: time || null },
+    data: {
+      ...(time !== undefined ? { time: time || null } : {}),
+      ...(mg !== undefined ? { mg: Math.round(mg) } : {}),
+    },
   });
   return NextResponse.json({ entry: updated });
 }
