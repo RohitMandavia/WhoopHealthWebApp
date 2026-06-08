@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUserId } from "@/lib/auth";
 import { calcMacroTargets } from "@/lib/macros";
 import { calcBMR } from "@/lib/tdee";
 import type { FoodItem } from "@/types";
@@ -18,10 +19,18 @@ Structure your response as 3–4 short paragraphs covering:
 Tone: encouraging but honest. Use specific numbers from the data. Keep it under 200 words total. Do not use markdown headers or bullet points — just natural prose paragraphs.`;
 
 export async function POST(req: NextRequest) {
-  const { userId, date } = await req.json() as { userId: string; date: string };
+  const cookieUserId = getCurrentUserId(req);
+  if (!cookieUserId) return NextResponse.json({ error: "not_logged_in" }, { status: 401 });
+
+  const { userId, date, tz } = await req.json() as { userId: string; date: string; tz?: string };
 
   if (!userId || !date) {
     return NextResponse.json({ error: "missing_params" }, { status: 400 });
+  }
+
+  // Only allow viewing your own data (no cross-user summary reads)
+  if (userId !== cookieUserId) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
   // Gather all data in parallel
@@ -69,9 +78,9 @@ export async function POST(req: NextRequest) {
   // Fetch Whoop data (best-effort)
   let whoopSummary = "No Whoop data available for today.";
   try {
-    const tz = "America/New_York";
+    const whoopTz = tz ?? "UTC";
     const whoopRes = await fetch(
-      `${req.nextUrl.origin}/api/whoop/daily?date=${date}&userId=${userId}&tz=${encodeURIComponent(tz)}`
+      `${req.nextUrl.origin}/api/whoop/daily?date=${date}&userId=${userId}&tz=${encodeURIComponent(whoopTz)}`
     );
     if (whoopRes.ok) {
       const w = await whoopRes.json();

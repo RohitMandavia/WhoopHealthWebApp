@@ -21,7 +21,7 @@ export default function DailySummaryButton({ date, userId }: Props) {
       const res = await fetch("/api/daily-summary", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, date }),
+        body: JSON.stringify({ userId, date, tz: Intl.DateTimeFormat().resolvedOptions().timeZone }),
       });
       if (!res.ok) throw new Error("failed");
       const data = await res.json();
