@@ -122,6 +122,7 @@ function Ring({ label, sublabel, current, target, unit, decimals = 0, color, siz
 const PARTICLES       = ["✨", "🎉", "⭐", "🌟", "✨", "💊"];
 const STRETCH_PARTS   = ["🧘", "⭐", "✨", "💪", "✨", "🌟"];
 const WATER_PARTS     = ["💧", "⭐", "✨", "🌊", "✨", "💧"];
+const HABIT_PARTS     = ["✨", "⭐", "🎉", "✓", "✨", "⭐"];
 
 interface VitaminButtonProps {
   date: string;
@@ -165,12 +166,12 @@ function VitaminButton({ date, userId, isOwner }: VitaminButtonProps) {
         .vit-pop { animation: vitaminPop 0.4s ease forwards; }
         .vit-particle { position:absolute; pointer-events:none; font-size:12px; animation: vitaminFloat 0.9s ease-out forwards; }
       `}</style>
-      <div className="relative flex-1">
+      <div className="relative">
         <button
           onClick={handleToggle}
           disabled={!isOwner || saving}
           className={[
-            "w-full flex items-center justify-center gap-2 rounded-full px-4 py-1.5 text-xs font-medium transition-colors",
+            "flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-medium transition-colors",
             celebrating ? "vit-pop" : "",
             taken
               ? "bg-green-500/20 text-green-400 border border-green-500/40"
@@ -227,12 +228,12 @@ function StretchButton({ date, userId, isOwner }: StretchButtonProps) {
   if (done === null) return null;
 
   return (
-    <div className="relative flex-1">
+    <div className="relative">
       <button
         onClick={handleToggle}
         disabled={!isOwner || saving}
         className={[
-          "w-full flex items-center justify-center gap-2 rounded-full px-4 py-1.5 text-xs font-medium transition-colors",
+          "flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-medium transition-colors",
           celebrating ? "vit-pop" : "",
           done
             ? "bg-green-500/20 text-green-400 border border-green-500/40"
@@ -282,12 +283,12 @@ function WaterButton({ date, userId, isOwner }: StretchButtonProps) {
   if (done === null) return null;
 
   return (
-    <div className="relative flex-1">
+    <div className="relative">
       <button
         onClick={handleToggle}
         disabled={!isOwner || saving}
         className={[
-          "w-full flex items-center justify-center gap-2 rounded-full px-4 py-1.5 text-xs font-medium transition-colors",
+          "flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-medium transition-colors",
           celebrating ? "vit-pop" : "",
           done
             ? "bg-green-500/20 text-green-400 border border-green-500/40"
@@ -308,6 +309,68 @@ function WaterButton({ date, userId, isOwner }: StretchButtonProps) {
   );
 }
 
+interface CustomHabit { id: string; name: string; done: boolean }
+
+interface CustomHabitButtonProps {
+  habit: CustomHabit;
+  date: string;
+  isOwner: boolean;
+  onToggle: (id: string, done: boolean) => void;
+  onDelete: (id: string) => void;
+}
+
+function CustomHabitButton({ habit, date, isOwner, onToggle, onDelete }: CustomHabitButtonProps) {
+  const [saving, setSaving] = useState(false);
+  const [celebrating, setCelebrating] = useState(false);
+
+  async function handleToggle() {
+    if (!isOwner || saving) return;
+    setSaving(true);
+    const next = !habit.done;
+    if (next) { setCelebrating(true); setTimeout(() => setCelebrating(false), 900); }
+    onToggle(habit.id, next);
+    await fetch(`/api/habits/${habit.id}/log`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date, done: next }),
+    });
+    setSaving(false);
+  }
+
+  return (
+    <div className="relative group">
+      <button
+        onClick={handleToggle}
+        disabled={!isOwner || saving}
+        className={[
+          "flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-medium transition-colors",
+          celebrating ? "vit-pop" : "",
+          habit.done
+            ? "bg-green-500/20 text-green-400 border border-green-500/40"
+            : isOwner
+            ? "bg-red-500/15 text-red-400 border border-red-500/40 hover:border-green-500/40 hover:text-green-400 hover:bg-green-500/10"
+            : "bg-red-500/15 text-red-400 border border-red-500/40 cursor-default",
+        ].join(" ")}
+      >
+        <span>{habit.done ? "✓" : "○"}</span>
+        {habit.name}
+      </button>
+      {isOwner && (
+        <button
+          onClick={() => onDelete(habit.id)}
+          className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-muted border border-border text-muted-foreground hover:text-destructive text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+          title="Remove habit"
+        >✕</button>
+      )}
+      {celebrating && HABIT_PARTS.map((emoji, i) => (
+        <span key={i} className="vit-particle" style={{ left: `${20 + i * 12}%`, bottom: "50%", animationDelay: `${i * 0.07}s` }}>
+          {emoji}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export default function MacroProgress({ items, date, userId, isOwner }: Props) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [steps, setSteps] = useState<number | null>(null);
@@ -315,6 +378,9 @@ export default function MacroProgress({ items, date, userId, isOwner }: Props) {
   const [calOverrides, setCalOverrides] = useState<Record<string, number>>({});
   const [editingGoals, setEditingGoals] = useState(false);
   const [goalForm, setGoalForm] = useState({ kcal: "", protein: "", carbs: "", fat: "" });
+  const [habits, setHabits] = useState<CustomHabit[]>([]);
+  const [addingHabit, setAddingHabit] = useState(false);
+  const [newHabitName, setNewHabitName] = useState("");
 
   useEffect(() => {
     function refresh() {
@@ -332,6 +398,10 @@ export default function MacroProgress({ items, date, userId, isOwner }: Props) {
       fetch(`/api/workout-calories?userId=${userId}`)
         .then((r) => r.ok ? r.json() : null)
         .then((d) => { if (d?.overrides) setCalOverrides(d.overrides); })
+        .catch(() => {});
+      fetch(`/api/habits?date=${date}&userId=${userId}`)
+        .then((r) => r.ok ? r.json() : null)
+        .then((d) => { if (d?.habits) setHabits(d.habits); })
         .catch(() => {});
     }
     refresh();
@@ -465,10 +535,63 @@ export default function MacroProgress({ items, date, userId, isOwner }: Props) {
       </div>
 
       {/* Habit buttons */}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <VitaminButton date={date} userId={userId} isOwner={isOwner} />
         <StretchButton date={date} userId={userId} isOwner={isOwner} />
         <WaterButton date={date} userId={userId} isOwner={isOwner} />
+        {habits.map((h) => (
+          <CustomHabitButton
+            key={h.id}
+            habit={h}
+            date={date}
+            isOwner={isOwner}
+            onToggle={(id, done) => setHabits((prev) => prev.map((x) => x.id === id ? { ...x, done } : x))}
+            onDelete={async (id) => {
+              await fetch(`/api/habits/${id}`, { method: "DELETE" });
+              setHabits((prev) => prev.filter((x) => x.id !== id));
+            }}
+          />
+        ))}
+        {isOwner && !addingHabit && (
+          <button
+            onClick={() => setAddingHabit(true)}
+            className="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs text-muted-foreground border border-dashed border-border hover:text-foreground hover:border-muted-foreground transition-colors"
+          >
+            + Add habit
+          </button>
+        )}
+        {isOwner && addingHabit && (
+          <div className="flex items-center gap-1.5">
+            <input
+              autoFocus
+              type="text"
+              placeholder="Habit name"
+              value={newHabitName}
+              onChange={(e) => setNewHabitName(e.target.value)}
+              onKeyDown={async (e) => {
+                if (e.key === "Enter" && newHabitName.trim()) {
+                  const res = await fetch("/api/habits", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newHabitName.trim() }) });
+                  const data = res.ok ? await res.json() : null;
+                  if (data?.habit) setHabits((prev) => [...prev, data.habit]);
+                  setNewHabitName(""); setAddingHabit(false);
+                }
+                if (e.key === "Escape") { setAddingHabit(false); setNewHabitName(""); }
+              }}
+              className="rounded-full border border-input bg-background px-3 py-1.5 text-xs w-36"
+            />
+            <button
+              onClick={async () => {
+                if (!newHabitName.trim()) { setAddingHabit(false); return; }
+                const res = await fetch("/api/habits", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newHabitName.trim() }) });
+                const data = res.ok ? await res.json() : null;
+                if (data?.habit) setHabits((prev) => [...prev, data.habit]);
+                setNewHabitName(""); setAddingHabit(false);
+              }}
+              className="px-2.5 py-1 rounded-full bg-primary text-primary-foreground text-xs"
+            >Add</button>
+            <button onClick={() => { setAddingHabit(false); setNewHabitName(""); }} className="text-xs text-muted-foreground hover:text-foreground">✕</button>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -25,6 +25,32 @@ model User {
   waterLogs     WaterLog[]
   caffeineLogs        CaffeineLog[]
   workoutCalOverrides WorkoutCalOverride[]
+  habitGoals          HabitGoal[]
+  habitLogs           HabitLog[]
+}
+
+model HabitGoal {
+  id        String     @id @default(cuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id])
+  name      String
+  sortOrder Int        @default(0)
+  createdAt DateTime   @default(now())
+  logs      HabitLog[]
+
+  @@unique([userId, name])
+}
+
+model HabitLog {
+  id      String    @id @default(cuid())
+  habitId String
+  habit   HabitGoal @relation(fields: [habitId], references: [id])
+  userId  String
+  user    User      @relation(fields: [userId], references: [id])
+  date    String
+  done    Boolean   @default(false)
+
+  @@unique([habitId, date])
 }
 
 model WorkoutCalOverride {
