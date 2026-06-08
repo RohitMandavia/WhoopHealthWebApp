@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { calcMacroTargets, type Mode, type MacroTargets } from "@/lib/macros";
+import { calcBMR } from "@/lib/tdee";
 import { estimateWorkoutKcal } from "./BodyMetrics";
 import type { FoodItem, WhoopDaily } from "@/types";
+import DailySummaryButton from "./DailySummaryButton";
 
 interface Props {
   items: FoodItem[];
@@ -25,11 +27,6 @@ interface Stats {
   fatGoalOverride: number | null;
 }
 
-function calcBMR(weightLbs: number, bodyFatPct: number): number {
-  const weightKg = weightLbs * 0.453592;
-  const lbmKg = weightKg * (1 - bodyFatPct / 100);
-  return Math.round(370 + 21.6 * lbmKg);
-}
 
 
 const C = {
@@ -593,6 +590,8 @@ export default function MacroProgress({ items, date, userId, isOwner }: Props) {
           </div>
         )}
       </div>
+
+      <DailySummaryButton date={date} userId={userId} />
     </div>
   );
 }
