@@ -67,6 +67,9 @@ export default function FoodSection({ date, userId, isOwner }: FoodSectionProps)
           protein:    +(ex.protein  + item.protein).toFixed(1),
           carbs:      +(ex.carbs    + item.carbs).toFixed(1),
           fat:        +(ex.fat      + item.fat).toFixed(1),
+          fiber:      +((ex.fiber ?? 0) + (item.fiber ?? 0)).toFixed(1) || undefined,
+          sugar:      +((ex.sugar ?? 0) + (item.sugar ?? 0)).toFixed(1) || undefined,
+          addedSugar: +((ex.addedSugar ?? 0) + (item.addedSugar ?? 0)).toFixed(1) || undefined,
           quantity:   addQuantities(ex.quantity, item.quantity),
           caffeineMg: (ex.caffeineMg ?? 0) + (item.caffeineMg ?? 0) || undefined,
         });

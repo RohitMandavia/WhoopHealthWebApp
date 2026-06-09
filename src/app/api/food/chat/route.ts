@@ -14,7 +14,7 @@ Rules:
 - Only modify items the user explicitly mentions — copy all other items to the output exactly as given, with their exact existing calorie and macro values unchanged
 - Return JSON with exactly two keys: "items" (complete updated list) and "reply" (one sentence summary)
 
-Each item: name (string), quantity (string), calories (integer kcal), protein (number g), carbs (number g), fat (number g). If the item contains caffeine (coffee, espresso, tea, matcha, energy drink, pre-workout, etc.), also include caffeineMg (integer, milligrams). IMPORTANT: caffeineMg must be scaled to the actual quantity logged — if the user logged half a serving, caffeineMg should be half the full-serving caffeine. Do NOT return the per-serving label amount unless the full serving was consumed. Common full-serving values: black coffee 8oz=95mg, espresso shot=63mg, latte/cappuccino=63mg per shot, black tea 8oz=47mg, green tea 8oz=28mg, matcha 8oz=70mg, pre-workout full scoop=150-300mg. Omit caffeineMg for items without caffeine.
+Each item: name (string), quantity (string), calories (integer kcal), protein (number g), carbs (number g), fat (number g), fiber (number g — dietary fiber), sugar (number g — total sugars), addedSugar (number g — added sugars only, 0 for whole/unprocessed foods). If the item contains caffeine (coffee, espresso, tea, matcha, energy drink, pre-workout, etc.), also include caffeineMg (integer, milligrams). IMPORTANT: caffeineMg must be scaled to the actual quantity logged — if the user logged half a serving, caffeineMg should be half the full-serving caffeine. Do NOT return the per-serving label amount unless the full serving was consumed. Common full-serving values: black coffee 8oz=95mg, espresso shot=63mg, latte/cappuccino=63mg per shot, black tea 8oz=47mg, green tea 8oz=28mg, matcha 8oz=70mg, pre-workout full scoop=150-300mg. Omit caffeineMg for items without caffeine.
 
 Respond with only valid JSON, no explanation.`;
 
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
   const currentLog = currentItems.length === 0
     ? "(empty)"
     : currentItems.map((it, i) => {
-        const base = `${i + 1}. ${it.name} — ${it.quantity} — ${it.calories} cal, ${it.protein}g protein, ${it.carbs}g carbs, ${it.fat}g fat`;
+        const base = `${i + 1}. ${it.name} — ${it.quantity} — ${it.calories} cal, ${it.protein}g protein, ${it.carbs}g carbs, ${it.fat}g fat, ${it.fiber ?? 0}g fiber, ${it.sugar ?? 0}g sugar, ${it.addedSugar ?? 0}g added sugar`;
         return it.caffeineMg ? `${base}, ${it.caffeineMg}mg caffeine` : base;
       }).join("\n");
 
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
         (c) => c.name.toLowerCase() === item.name.toLowerCase()
       );
       if (!original || userMentionedItem(item.name)) return item;
-      return { ...item, calories: original.calories, protein: original.protein, carbs: original.carbs, fat: original.fat, caffeineMg: original.caffeineMg };
+      return { ...item, calories: original.calories, protein: original.protein, carbs: original.carbs, fat: original.fat, fiber: original.fiber, sugar: original.sugar, addedSugar: original.addedSugar, caffeineMg: original.caffeineMg };
     });
 
     const { items: validItems, dropped } = filterZeroCalItems(guardedItems);
