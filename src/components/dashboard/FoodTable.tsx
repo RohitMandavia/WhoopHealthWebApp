@@ -50,6 +50,9 @@ export default function FoodTable({ logs, onDeleteLog, onUpdateLog }: FoodTableP
       protein: item.protein,
       carbs: item.carbs,
       fat: item.fat,
+      fiber: item.fiber ?? 0,
+      sugar: item.sugar ?? 0,
+      addedSugar: item.addedSugar ?? 0,
     });
   }
 
@@ -72,6 +75,9 @@ export default function FoodTable({ logs, onDeleteLog, onUpdateLog }: FoodTableP
             protein: Number(editValues.protein ?? orig.protein),
             carbs: Number(editValues.carbs ?? orig.carbs),
             fat: Number(editValues.fat ?? orig.fat),
+            fiber: Number(editValues.fiber ?? orig.fiber ?? 0),
+            sugar: Number(editValues.sugar ?? orig.sugar ?? 0),
+            addedSugar: Number(editValues.addedSugar ?? orig.addedSugar ?? 0),
           }
         : orig
     );
@@ -127,6 +133,9 @@ export default function FoodTable({ logs, onDeleteLog, onUpdateLog }: FoodTableP
             <TableHead className="text-right">Protein (g)</TableHead>
             <TableHead className="text-right">Carbs (g)</TableHead>
             <TableHead className="text-right">Fat (g)</TableHead>
+            <TableHead className="text-right">Fiber (g)</TableHead>
+            <TableHead className="text-right">Sugar (g)</TableHead>
+            <TableHead className="text-right">Added Sugar (g)</TableHead>
             {editable && <TableHead className="w-20" />}
           </TableRow>
         </TableHeader>
@@ -157,6 +166,9 @@ export default function FoodTable({ logs, onDeleteLog, onUpdateLog }: FoodTableP
                     <TableCell className="text-right">{numField("protein")}</TableCell>
                     <TableCell className="text-right">{numField("carbs")}</TableCell>
                     <TableCell className="text-right">{numField("fat")}</TableCell>
+                    <TableCell className="text-right">{numField("fiber")}</TableCell>
+                    <TableCell className="text-right">{numField("sugar")}</TableCell>
+                    <TableCell className="text-right">{numField("addedSugar")}</TableCell>
                     <TableCell>
                       <div className="flex gap-1">
                         <Button size="sm" variant="default" className="h-6 px-2 text-xs" onClick={() => saveEdit(item)}>Save</Button>
@@ -172,6 +184,9 @@ export default function FoodTable({ logs, onDeleteLog, onUpdateLog }: FoodTableP
                     <TableCell className="text-right">{item.protein.toFixed(1)}</TableCell>
                     <TableCell className="text-right">{item.carbs.toFixed(1)}</TableCell>
                     <TableCell className="text-right">{item.fat.toFixed(1)}</TableCell>
+                    <TableCell className="text-right">{item.fiber != null ? item.fiber.toFixed(1) : "—"}</TableCell>
+                    <TableCell className="text-right">{item.sugar != null ? item.sugar.toFixed(1) : "—"}</TableCell>
+                    <TableCell className="text-right">{item.addedSugar != null ? item.addedSugar.toFixed(1) : "—"}</TableCell>
                     {editable && (
                       <TableCell>
                         <div className="flex gap-1">

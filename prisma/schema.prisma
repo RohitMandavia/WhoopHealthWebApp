@@ -128,10 +128,13 @@ model UserStats {
   goalRate        Float?   // lbs per week: 0.5 or 1.0
   targetWeightLbs Float?
   sleepGoalHours  Float?   // hours per night: 7.0–9.0, default 8
-  calGoalOverride     Int?
-  proteinGoalOverride Int?
-  carbsGoalOverride   Int?
-  fatGoalOverride     Int?
+  calGoalOverride        Int?
+  proteinGoalOverride    Int?
+  carbsGoalOverride      Int?
+  fatGoalOverride        Int?
+  fiberGoalOverride      Int?
+  sugarGoalOverride      Int?
+  addedSugarGoalOverride Int?
   updatedAt   DateTime @updatedAt
   createdAt   DateTime @default(now())
 }
@@ -217,6 +220,9 @@ model FoodPreset {
   carbs     Float
   fat       Float
   caffeineMg  Int?
+  fiber       Float?
+  sugar       Float?
+  addedSugar  Float?
   variableQty Boolean @default(false)
   sortOrder   Int     @default(0)
   createdAt DateTime @default(now())

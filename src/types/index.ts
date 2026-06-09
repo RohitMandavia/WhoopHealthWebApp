@@ -5,6 +5,9 @@ export interface FoodItem {
   protein: number;
   carbs: number;
   fat: number;
+  fiber?: number;
+  sugar?: number;
+  addedSugar?: number;
   caffeineMg?: number; // only present for caffeinated items
 }
 
@@ -60,7 +63,10 @@ export interface FoodPreset {
   protein: number;
   carbs: number;
   fat: number;
-  caffeineMg?: number;
+  fiber?: number | null;
+  sugar?: number | null;
+  addedSugar?: number | null;
+  caffeineMg?: number | null;
   variableQty?: boolean;
   sortOrder: number;
 }

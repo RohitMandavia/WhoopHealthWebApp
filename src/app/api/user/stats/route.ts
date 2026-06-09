@@ -19,12 +19,13 @@ export async function PATCH(req: NextRequest) {
   const {
     weightLbs, heightIn, age, bodyFatPct, sex, mode, goalRate, targetWeightLbs, sleepGoalHours,
     calGoalOverride, proteinGoalOverride, carbsGoalOverride, fatGoalOverride,
+    fiberGoalOverride, sugarGoalOverride, addedSugarGoalOverride,
   } = await req.json();
 
   const stats = await prisma.userStats.upsert({
     where: { userId },
-    update: { weightLbs, heightIn, age, bodyFatPct, sex, mode, goalRate, targetWeightLbs, sleepGoalHours, calGoalOverride, proteinGoalOverride, carbsGoalOverride, fatGoalOverride },
-    create: { userId, weightLbs, heightIn, age, bodyFatPct, sex, mode, goalRate, targetWeightLbs, sleepGoalHours, calGoalOverride, proteinGoalOverride, carbsGoalOverride, fatGoalOverride },
+    update: { weightLbs, heightIn, age, bodyFatPct, sex, mode, goalRate, targetWeightLbs, sleepGoalHours, calGoalOverride, proteinGoalOverride, carbsGoalOverride, fatGoalOverride, fiberGoalOverride, sugarGoalOverride, addedSugarGoalOverride },
+    create: { userId, weightLbs, heightIn, age, bodyFatPct, sex, mode, goalRate, targetWeightLbs, sleepGoalHours, calGoalOverride, proteinGoalOverride, carbsGoalOverride, fatGoalOverride, fiberGoalOverride, sugarGoalOverride, addedSugarGoalOverride },
   });
 
   return NextResponse.json({ stats });

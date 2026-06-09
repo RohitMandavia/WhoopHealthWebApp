@@ -25,6 +25,9 @@ interface Stats {
   proteinGoalOverride: number | null;
   carbsGoalOverride: number | null;
   fatGoalOverride: number | null;
+  fiberGoalOverride: number | null;
+  sugarGoalOverride: number | null;
+  addedSugarGoalOverride: number | null;
 }
 
 
@@ -374,7 +377,7 @@ export default function MacroProgress({ items, date, userId, isOwner }: Props) {
   const [whoop, setWhoop] = useState<WhoopDaily | null>(null);
   const [calOverrides, setCalOverrides] = useState<Record<string, number>>({});
   const [editingGoals, setEditingGoals] = useState(false);
-  const [goalForm, setGoalForm] = useState({ kcal: "", protein: "", carbs: "", fat: "" });
+  const [goalForm, setGoalForm] = useState({ kcal: "", protein: "", carbs: "", fat: "", fiber: "", sugar: "", addedSugar: "" });
   const [habits, setHabits] = useState<CustomHabit[]>([]);
   const [addingHabit, setAddingHabit] = useState(false);
   const [newHabitName, setNewHabitName] = useState("");
@@ -417,7 +420,7 @@ export default function MacroProgress({ items, date, userId, isOwner }: Props) {
   const tdee = Math.round(bmr * 1.2) + stepKcal + workoutKcal;
   const goalRate = stats.goalRate ?? 1;
   const calculated: MacroTargets = calcMacroTargets(tdee, stats.weightLbs, mode, goalRate);
-  const hasOverride = stats.calGoalOverride != null || stats.proteinGoalOverride != null || stats.carbsGoalOverride != null || stats.fatGoalOverride != null;
+  const hasOverride = stats.calGoalOverride != null || stats.proteinGoalOverride != null || stats.carbsGoalOverride != null || stats.fatGoalOverride != null || stats.fiberGoalOverride != null || stats.sugarGoalOverride != null || stats.addedSugarGoalOverride != null;
   const targets: MacroTargets = {
     kcal:    stats.calGoalOverride     ?? calculated.kcal,
     protein: stats.proteinGoalOverride ?? calculated.protein,
@@ -426,10 +429,13 @@ export default function MacroProgress({ items, date, userId, isOwner }: Props) {
   };
 
   const current = {
-    kcal:    items.reduce((s, i) => s + i.calories, 0),
-    protein: items.reduce((s, i) => s + i.protein, 0),
-    carbs:   items.reduce((s, i) => s + i.carbs, 0),
-    fat:     items.reduce((s, i) => s + i.fat, 0),
+    kcal:       items.reduce((s, i) => s + i.calories, 0),
+    protein:    items.reduce((s, i) => s + i.protein, 0),
+    carbs:      items.reduce((s, i) => s + i.carbs, 0),
+    fat:        items.reduce((s, i) => s + i.fat, 0),
+    fiber:      items.reduce((s, i) => s + (i.fiber ?? 0), 0),
+    sugar:      items.reduce((s, i) => s + (i.sugar ?? 0), 0),
+    addedSugar: items.reduce((s, i) => s + (i.addedSugar ?? 0), 0),
   };
 
   const calProgress     = targets.kcal    > 0 ? current.kcal    / targets.kcal    : 0;
@@ -442,10 +448,13 @@ export default function MacroProgress({ items, date, userId, isOwner }: Props) {
 
   async function handleSaveGoals() {
     const body = {
-      calGoalOverride:     goalForm.kcal    ? parseInt(goalForm.kcal)    : null,
-      proteinGoalOverride: goalForm.protein ? parseInt(goalForm.protein) : null,
-      carbsGoalOverride:   goalForm.carbs   ? parseInt(goalForm.carbs)   : null,
-      fatGoalOverride:     goalForm.fat     ? parseInt(goalForm.fat)     : null,
+      calGoalOverride:        goalForm.kcal       ? parseInt(goalForm.kcal)       : null,
+      proteinGoalOverride:    goalForm.protein    ? parseInt(goalForm.protein)    : null,
+      carbsGoalOverride:      goalForm.carbs      ? parseInt(goalForm.carbs)      : null,
+      fatGoalOverride:        goalForm.fat        ? parseInt(goalForm.fat)        : null,
+      fiberGoalOverride:      goalForm.fiber      ? parseInt(goalForm.fiber)      : null,
+      sugarGoalOverride:      goalForm.sugar      ? parseInt(goalForm.sugar)      : null,
+      addedSugarGoalOverride: goalForm.addedSugar ? parseInt(goalForm.addedSugar) : null,
     };
     await fetch("/api/user/stats", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     setStats((s) => s ? { ...s, ...body } : s);
@@ -454,7 +463,7 @@ export default function MacroProgress({ items, date, userId, isOwner }: Props) {
   }
 
   async function handleResetGoals() {
-    const body = { calGoalOverride: null, proteinGoalOverride: null, carbsGoalOverride: null, fatGoalOverride: null };
+    const body = { calGoalOverride: null, proteinGoalOverride: null, carbsGoalOverride: null, fatGoalOverride: null, fiberGoalOverride: null, sugarGoalOverride: null, addedSugarGoalOverride: null };
     await fetch("/api/user/stats", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     setStats((s) => s ? { ...s, ...body } : s);
     setEditingGoals(false);
@@ -471,7 +480,7 @@ export default function MacroProgress({ items, date, userId, isOwner }: Props) {
           )}
           {isOwner && (
             <button
-              onClick={() => { setGoalForm({ kcal: String(targets.kcal), protein: String(targets.protein), carbs: String(targets.carbs), fat: String(targets.fat) }); setEditingGoals((v) => !v); }}
+              onClick={() => { setGoalForm({ kcal: String(targets.kcal), protein: String(targets.protein), carbs: String(targets.carbs), fat: String(targets.fat), fiber: stats.fiberGoalOverride != null ? String(stats.fiberGoalOverride) : "", sugar: stats.sugarGoalOverride != null ? String(stats.sugarGoalOverride) : "", addedSugar: stats.addedSugarGoalOverride != null ? String(stats.addedSugarGoalOverride) : "" }); setEditingGoals((v) => !v); }}
               className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
             >
               {editingGoals ? "Cancel" : "Edit goals"}
@@ -482,19 +491,35 @@ export default function MacroProgress({ items, date, userId, isOwner }: Props) {
       </div>
 
       {editingGoals && (
-        <div className="grid grid-cols-4 gap-2">
-          {(["kcal", "protein", "carbs", "fat"] as const).map((k) => (
-            <label key={k} className="space-y-0.5">
-              <span className="text-xs text-muted-foreground capitalize">{k === "kcal" ? "Calories" : k}</span>
-              <input
-                type="number"
-                value={goalForm[k]}
-                onChange={(e) => setGoalForm((f) => ({ ...f, [k]: e.target.value }))}
-                className="w-full rounded border border-input bg-background px-2 py-1 text-xs"
-              />
-            </label>
-          ))}
-          <div className="col-span-4 flex gap-2">
+        <div className="space-y-2">
+          <div className="grid grid-cols-4 gap-2">
+            {(["kcal", "protein", "carbs", "fat"] as const).map((k) => (
+              <label key={k} className="space-y-0.5">
+                <span className="text-xs text-muted-foreground capitalize">{k === "kcal" ? "Calories" : k}</span>
+                <input
+                  type="number"
+                  value={goalForm[k]}
+                  onChange={(e) => setGoalForm((f) => ({ ...f, [k]: e.target.value }))}
+                  className="w-full rounded border border-input bg-background px-2 py-1 text-xs"
+                />
+              </label>
+            ))}
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {([["fiber", "Fiber (g)"], ["sugar", "Sugar (g)"], ["addedSugar", "Added Sugar (g)"]] as const).map(([k, label]) => (
+              <label key={k} className="space-y-0.5">
+                <span className="text-xs text-muted-foreground">{label} <span className="text-muted-foreground/60">optional</span></span>
+                <input
+                  type="number"
+                  placeholder="no goal"
+                  value={goalForm[k]}
+                  onChange={(e) => setGoalForm((f) => ({ ...f, [k]: e.target.value }))}
+                  className="w-full rounded border border-input bg-background px-2 py-1 text-xs"
+                />
+              </label>
+            ))}
+          </div>
+          <div className="flex gap-2">
             <button onClick={handleSaveGoals} className="px-3 py-1 rounded bg-primary text-primary-foreground text-xs font-medium">Save</button>
             <button onClick={() => setEditingGoals(false)} className="px-3 py-1 rounded text-xs text-muted-foreground hover:text-foreground">Cancel</button>
           </div>
@@ -530,6 +555,33 @@ export default function MacroProgress({ items, date, userId, isOwner }: Props) {
           size={82} showRemaining
         />
       </div>
+
+      {/* Optional fiber / sugar rings — only shown when a goal is set */}
+      {(stats.fiberGoalOverride != null || stats.sugarGoalOverride != null || stats.addedSugarGoalOverride != null) && (
+        <div className="flex justify-around">
+          {stats.fiberGoalOverride != null && (
+            <Ring
+              label="Fiber" current={current.fiber} target={stats.fiberGoalOverride} unit="g" decimals={1}
+              color={macroRingColor(current.fiber / stats.fiberGoalOverride, calProgress, true)}
+              size={82} showRemaining
+            />
+          )}
+          {stats.sugarGoalOverride != null && (
+            <Ring
+              label="Sugar" current={current.sugar} target={stats.sugarGoalOverride} unit="g" decimals={1}
+              color={macroRingColor(current.sugar / stats.sugarGoalOverride, calProgress)}
+              size={82} showRemaining
+            />
+          )}
+          {stats.addedSugarGoalOverride != null && (
+            <Ring
+              label="Added Sugar" current={current.addedSugar} target={stats.addedSugarGoalOverride} unit="g" decimals={1}
+              color={macroRingColor(current.addedSugar / stats.addedSugarGoalOverride, calProgress)}
+              size={82} showRemaining
+            />
+          )}
+        </div>
+      )}
 
       {/* Habit buttons */}
       <div className="flex flex-wrap gap-2">

@@ -65,7 +65,7 @@ Rules:
 - When quantity is ambiguous, use a typical single serving
 - If the user states a specific calorie number, use exactly that number
 
-Each item must have: name (string), quantity (string, e.g. "2 large"), calories (integer kcal, never 0 for real food), protein (number, grams, 1 decimal), carbs (number, grams, 1 decimal), fat (number, grams, 1 decimal)
+Each item must have: name (string), quantity (string, e.g. "2 large"), calories (integer kcal, never 0 for real food), protein (number, grams, 1 decimal), carbs (number, grams, 1 decimal), fat (number, grams, 1 decimal), fiber (number, grams, 1 decimal — dietary fiber), sugar (number, grams, 1 decimal — total sugars), addedSugar (number, grams, 1 decimal — added sugars only, 0 for whole/unprocessed foods).
 
 If the item contains caffeine (coffee, espresso, tea, matcha, energy drink, pre-workout, etc.), also include caffeineMg (integer, milligrams). IMPORTANT: caffeineMg must be scaled to the actual quantity logged, exactly like calories and macros — if the user logged half a serving, caffeineMg should be half the full-serving caffeine amount. Do NOT return the per-serving label amount unless the full serving was consumed. Common full-serving values: black coffee 8oz=95mg, espresso shot=63mg, latte/cappuccino=63mg per shot, black tea 8oz=47mg, green tea 8oz=28mg, matcha 8oz=70mg, Red Bull 8oz=80mg, pre-workout full scoop=150-300mg. Omit caffeineMg entirely for items without caffeine.
 

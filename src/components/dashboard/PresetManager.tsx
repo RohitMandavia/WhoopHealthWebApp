@@ -10,7 +10,7 @@ interface PresetManagerProps {
   onPresetsChanged: (presets: FoodPreset[]) => void;
 }
 
-const EMPTY_FORM = { name: "", quantity: "", calories: "", protein: "", carbs: "", fat: "", caffeineMg: "", variableQty: false };
+const EMPTY_FORM = { name: "", quantity: "", calories: "", protein: "", carbs: "", fat: "", fiber: "", sugar: "", addedSugar: "", caffeineMg: "", variableQty: false };
 
 export default function PresetManager({ presets, onClose, onPresetsChanged }: PresetManagerProps) {
   const [form, setForm] = useState(EMPTY_FORM);
@@ -39,6 +39,9 @@ export default function PresetManager({ presets, onClose, onPresetsChanged }: Pr
       protein: String(preset.protein),
       carbs: String(preset.carbs),
       fat: String(preset.fat),
+      fiber: preset.fiber != null ? String(preset.fiber) : "",
+      sugar: preset.sugar != null ? String(preset.sugar) : "",
+      addedSugar: preset.addedSugar != null ? String(preset.addedSugar) : "",
       caffeineMg: preset.caffeineMg != null ? String(preset.caffeineMg) : "",
       variableQty: preset.variableQty ?? false,
     });
@@ -60,6 +63,9 @@ export default function PresetManager({ presets, onClose, onPresetsChanged }: Pr
       protein: Number(form.protein) || 0,
       carbs: Number(form.carbs) || 0,
       fat: Number(form.fat) || 0,
+      fiber: form.fiber ? Number(form.fiber) : null,
+      sugar: form.sugar ? Number(form.sugar) : null,
+      addedSugar: form.addedSugar ? Number(form.addedSugar) : null,
       caffeineMg: form.caffeineMg ? Math.round(Number(form.caffeineMg)) : null,
       variableQty: form.variableQty,
     };
@@ -104,19 +110,22 @@ export default function PresetManager({ presets, onClose, onPresetsChanged }: Pr
         <div className="space-y-2">
           {presets.map((preset) =>
             editingId === preset.id ? (
-              <div key={preset.id} className="grid grid-cols-6 gap-1.5 items-end">
+              <div key={preset.id} className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 items-end">
                 {field("name")}
                 {field("quantity")}
                 {field("calories")}
                 {field("protein")}
                 {field("carbs")}
                 {field("fat")}
+                {field("fiber")}
+                {field("sugar")}
+                {field("addedSugar")}
                 {field("caffeineMg")}
-                <div className="col-span-6 flex items-center gap-2">
+                <div className="col-span-3 sm:col-span-5 flex items-center gap-2">
                   <input type="checkbox" id="vq-edit" checked={form.variableQty} onChange={(e) => setForm((f) => ({ ...f, variableQty: e.target.checked }))} className="rounded" />
                   <label htmlFor="vq-edit" className="text-xs text-muted-foreground">Ask for quantity when adding (macros scale per the base amount above)</label>
                 </div>
-                <div className="col-span-6 flex gap-2">
+                <div className="col-span-3 sm:col-span-5 flex gap-2">
                   <Button size="sm" className="h-7 text-xs" onClick={handleSave} disabled={saving}>Save</Button>
                   <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={cancelEdit}>Cancel</Button>
                 </div>
@@ -148,13 +157,16 @@ export default function PresetManager({ presets, onClose, onPresetsChanged }: Pr
             {field("protein")}
             {field("carbs")}
             {field("fat")}
+            {field("fiber")}
+            {field("sugar")}
+            {field("addedSugar")}
             {field("caffeineMg")}
           </div>
           <div className="flex items-center gap-2">
             <input type="checkbox" id="vq-add" checked={form.variableQty} onChange={(e) => setForm((f) => ({ ...f, variableQty: e.target.checked }))} className="rounded" />
             <label htmlFor="vq-add" className="text-xs text-muted-foreground">Ask for quantity when adding (macros scale per the base amount above)</label>
           </div>
-          <p className="text-xs text-muted-foreground">Name · Quantity (base) · Calories · Protein (g) · Carbs (g) · Fat (g) · Caffeine (mg, optional)</p>
+          <p className="text-xs text-muted-foreground">Name · Quantity (base) · Calories · Protein (g) · Carbs (g) · Fat (g) · Fiber (g) · Sugar (g) · Added Sugar (g) · Caffeine (mg) — all optional except name &amp; calories</p>
           <Button size="sm" className="h-7 text-xs" onClick={handleSave} disabled={saving || !form.name.trim() || !form.calories}>
             {saving ? "Saving…" : "Add Preset"}
           </Button>
