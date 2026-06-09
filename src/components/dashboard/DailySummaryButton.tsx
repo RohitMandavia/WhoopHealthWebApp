@@ -5,9 +5,10 @@ import { useState } from "react";
 interface Props {
   date: string;
   userId: string;
+  targets: { kcal: number; protein: number; carbs: number; fat: number };
 }
 
-export default function DailySummaryButton({ date, userId }: Props) {
+export default function DailySummaryButton({ date, userId, targets }: Props) {
   const [loading, setLoading] = useState(false);
   const [summary, setSummary] = useState<string | null>(null);
   const [error, setError] = useState(false);
@@ -21,7 +22,7 @@ export default function DailySummaryButton({ date, userId }: Props) {
       const res = await fetch("/api/daily-summary", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, date }),
+        body: JSON.stringify({ userId, date, targets, tz: Intl.DateTimeFormat().resolvedOptions().timeZone }),
       });
       if (!res.ok) throw new Error("failed");
       const data = await res.json();

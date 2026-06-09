@@ -591,7 +591,7 @@ export default function MacroProgress({ items, date, userId, isOwner }: Props) {
         )}
       </div>
 
-      <DailySummaryButton date={date} userId={userId} />
+      <DailySummaryButton date={date} userId={userId} targets={targets} />
     </div>
   );
 }

@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/prisma";
-import { calcMacroTargets } from "@/lib/macros";
-import { calcBMR } from "@/lib/tdee";
 import type { FoodItem } from "@/types";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -18,14 +16,19 @@ Structure your response as 3–4 short paragraphs covering:
 Tone: encouraging but honest. Use specific numbers from the data. Keep it under 200 words total. Do not use markdown headers or bullet points — just natural prose paragraphs.`;
 
 export async function POST(req: NextRequest) {
-  const { userId, date } = await req.json() as { userId: string; date: string };
+  const { userId, date, targets, tz } = await req.json() as {
+    userId: string;
+    date: string;
+    targets: { kcal: number; protein: number; carbs: number; fat: number };
+    tz?: string;
+  };
 
   if (!userId || !date) {
     return NextResponse.json({ error: "missing_params" }, { status: 400 });
   }
 
   // Gather all data in parallel
-  const [foodLogs, stepEntry, caffeineLogs, vitaminLog, waterLog, stretchLog, habitLogs, stats] = await Promise.all([
+  const [foodLogs, stepEntry, caffeineLogs, vitaminLog, waterLog, stretchLog, habitLogs] = await Promise.all([
     prisma.foodLog.findMany({ where: { userId, date } }),
     prisma.stepEntry.findFirst({ where: { userId, date } }),
     prisma.caffeineLog.findMany({ where: { userId, date } }),
@@ -33,7 +36,6 @@ export async function POST(req: NextRequest) {
     prisma.waterLog.findFirst({ where: { userId, date } }),
     prisma.stretchLog.findFirst({ where: { userId, date } }),
     prisma.habitLog.findMany({ where: { userId, date }, include: { habit: true } }),
-    prisma.userStats.findUnique({ where: { userId } }),
   ]);
 
   // Aggregate food
@@ -47,21 +49,16 @@ export async function POST(req: NextRequest) {
   const totalCaffeine = caffeineLogs.reduce((s, l) => s + l.mg, 0);
   const foodNames = allItems.slice(0, 8).map((i) => i.name).join(", ");
 
-  // Fetch Whoop data first so workout kcal can be included in TDEE
+  // Fetch Whoop data (best-effort, for activity/sleep context only)
   let whoopSummary = "No Whoop data available for today.";
-  let workoutKcal = 0;
   try {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const whoopTz = tz ?? "UTC";
     const whoopRes = await fetch(
-      `${req.nextUrl.origin}/api/whoop/daily?date=${date}&userId=${userId}&tz=${encodeURIComponent(tz)}`
+      `${req.nextUrl.origin}/api/whoop/daily?date=${date}&userId=${userId}&tz=${encodeURIComponent(whoopTz)}`
     );
     if (whoopRes.ok) {
       const w = await whoopRes.json();
       if (!w.error) {
-        workoutKcal = (w.workouts ?? []).reduce(
-          (sum: number, wk: { kilojoules: number }) => sum + Math.round(wk.kilojoules * 0.239),
-          0
-        );
         const workoutLines = (w.workouts ?? []).map((wk: { sport: string; strain: number; kilojoules: number }) =>
           `${wk.sport} (strain ${wk.strain?.toFixed(1)}, ~${Math.round(wk.kilojoules * 0.239)} kcal)`
         ).join("; ") || "no workouts logged";
@@ -80,25 +77,6 @@ export async function POST(req: NextRequest) {
     // non-fatal
   }
 
-  // Compute targets — mirrors MacroProgress: bmr * 1.2 + stepKcal + workoutKcal
-  let targets = { kcal: 0, protein: 0, carbs: 0, fat: 0 };
-  if (stats?.weightLbs && stats?.bodyFatPct && stats?.mode) {
-    const bmr = calcBMR(stats.weightLbs, stats.bodyFatPct);
-    const steps = stepEntry?.steps ?? 0;
-    const weightKg = stats.weightLbs * 0.453592;
-    const stepKcal = Math.round(steps * weightKg * 0.0006);
-    const tdee = Math.round(bmr * 1.2) + stepKcal + workoutKcal;
-    const mode = stats.mode as "cutting" | "maintenance" | "bulking";
-    const goalRate = stats.goalRate ?? 1;
-    const calc = calcMacroTargets(tdee, stats.weightLbs, mode, goalRate);
-    targets = {
-      kcal: stats.calGoalOverride ?? calc.kcal,
-      protein: stats.proteinGoalOverride ?? calc.protein,
-      carbs: stats.carbsGoalOverride ?? calc.carbs,
-      fat: stats.fatGoalOverride ?? calc.fat,
-    };
-  }
-
   // Build the data context for Claude
   const habitsCompleted = [
     vitaminLog?.taken ? "vitamins" : null,
@@ -115,7 +93,6 @@ export async function POST(req: NextRequest) {
 
   const dataContext = `
 DATE: ${date}
-MODE: ${stats?.mode ?? "unknown"} (goal rate: ${stats?.goalRate ?? 1} lbs/week)
 
 NUTRITION:
 - Calories: ${Math.round(totalCal)} / ${targets.kcal} kcal target
