@@ -47,35 +47,21 @@ export async function POST(req: NextRequest) {
   const totalCaffeine = caffeineLogs.reduce((s, l) => s + l.mg, 0);
   const foodNames = allItems.slice(0, 8).map((i) => i.name).join(", ");
 
-  // Compute targets
-  let targets = { kcal: 0, protein: 0, carbs: 0, fat: 0 };
-  if (stats?.weightLbs && stats?.bodyFatPct && stats?.mode) {
-    const bmr = calcBMR(stats.weightLbs, stats.bodyFatPct);
-    const steps = stepEntry?.steps ?? 0;
-    const weightKg = stats.weightLbs * 0.453592;
-    const stepKcal = Math.round(steps * weightKg * 0.0006);
-    const tdee = Math.round(bmr * 1.2) + stepKcal;
-    const mode = stats.mode as "cutting" | "maintenance" | "bulking";
-    const goalRate = stats.goalRate ?? 1;
-    const calc = calcMacroTargets(tdee, stats.weightLbs, mode, goalRate);
-    targets = {
-      kcal: stats.calGoalOverride ?? calc.kcal,
-      protein: stats.proteinGoalOverride ?? calc.protein,
-      carbs: stats.carbsGoalOverride ?? calc.carbs,
-      fat: stats.fatGoalOverride ?? calc.fat,
-    };
-  }
-
-  // Fetch Whoop data (best-effort)
+  // Fetch Whoop data first so workout kcal can be included in TDEE
   let whoopSummary = "No Whoop data available for today.";
+  let workoutKcal = 0;
   try {
-    const tz = "America/New_York";
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const whoopRes = await fetch(
       `${req.nextUrl.origin}/api/whoop/daily?date=${date}&userId=${userId}&tz=${encodeURIComponent(tz)}`
     );
     if (whoopRes.ok) {
       const w = await whoopRes.json();
       if (!w.error) {
+        workoutKcal = (w.workouts ?? []).reduce(
+          (sum: number, wk: { kilojoules: number }) => sum + Math.round(wk.kilojoules * 0.239),
+          0
+        );
         const workoutLines = (w.workouts ?? []).map((wk: { sport: string; strain: number; kilojoules: number }) =>
           `${wk.sport} (strain ${wk.strain?.toFixed(1)}, ~${Math.round(wk.kilojoules * 0.239)} kcal)`
         ).join("; ") || "no workouts logged";
@@ -92,6 +78,25 @@ export async function POST(req: NextRequest) {
     }
   } catch {
     // non-fatal
+  }
+
+  // Compute targets — mirrors MacroProgress: bmr * 1.2 + stepKcal + workoutKcal
+  let targets = { kcal: 0, protein: 0, carbs: 0, fat: 0 };
+  if (stats?.weightLbs && stats?.bodyFatPct && stats?.mode) {
+    const bmr = calcBMR(stats.weightLbs, stats.bodyFatPct);
+    const steps = stepEntry?.steps ?? 0;
+    const weightKg = stats.weightLbs * 0.453592;
+    const stepKcal = Math.round(steps * weightKg * 0.0006);
+    const tdee = Math.round(bmr * 1.2) + stepKcal + workoutKcal;
+    const mode = stats.mode as "cutting" | "maintenance" | "bulking";
+    const goalRate = stats.goalRate ?? 1;
+    const calc = calcMacroTargets(tdee, stats.weightLbs, mode, goalRate);
+    targets = {
+      kcal: stats.calGoalOverride ?? calc.kcal,
+      protein: stats.proteinGoalOverride ?? calc.protein,
+      carbs: stats.carbsGoalOverride ?? calc.carbs,
+      fat: stats.fatGoalOverride ?? calc.fat,
+    };
   }
 
   // Build the data context for Claude
