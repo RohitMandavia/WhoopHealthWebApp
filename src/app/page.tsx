@@ -8,6 +8,7 @@ import UserPicker from "@/components/dashboard/UserPicker";
 import BodyMetrics from "@/components/dashboard/BodyMetrics";
 import PRSection from "@/components/dashboard/PRSection";
 import CaffeineSection from "@/components/dashboard/CaffeineSection";
+import TodoSection from "@/components/dashboard/TodoSection";
 
 interface PageProps {
   searchParams: Promise<{ date?: string; view?: string; connected?: string; error?: string; calendar?: string }>;
@@ -98,6 +99,8 @@ export default async function Home({ searchParams }: PageProps) {
               </div>
               <WhoopSection date={date} userId={viewUserId} isOwner={isOwner} />
             </div>
+
+            <TodoSection userId={viewUserId} isOwner={isOwner} />
           </section>
 
           <section className="space-y-8">

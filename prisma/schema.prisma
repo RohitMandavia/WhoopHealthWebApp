@@ -27,6 +27,7 @@ model User {
   workoutCalOverrides WorkoutCalOverride[]
   habitGoals          HabitGoal[]
   habitLogs           HabitLog[]
+  todos               Todo[]
 }
 
 model HabitGoal {
@@ -207,6 +208,16 @@ model PREntry {
   secondaryValue Float?   // reps when type = weight_reps
   notes          String?
   createdAt      DateTime @default(now())
+}
+
+model Todo {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  text      String
+  done      Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
 }
 
 model FoodPreset {
