@@ -48,6 +48,10 @@ export interface WorkoutInputs {
   sex?: string | null;
 }
 
+// Applied to the final estimate to correct for the well-documented tendency
+// of HR/strain-based formulas (and wearables) to overestimate calorie burn.
+const CONSERVATIVE_FACTOR = 0.85;
+
 export function estimateWorkoutKcalFromInputs({
   durationMin,
   avgHeartRate,
@@ -71,8 +75,8 @@ export function estimateWorkoutKcalFromInputs({
       calPerMin = (-37.75 + 0.539 * avgHeartRate + 0.036 * weightKg + 0.138 * age) / 4.184;
     }
     const hrEstimate = Math.max(0, Math.round(calPerMin * durationMin));
-    return Math.round((hrEstimate + strainEstimate) / 2);
+    return Math.round(((hrEstimate + strainEstimate) / 2) * CONSERVATIVE_FACTOR);
   }
 
-  return strainEstimate;
+  return Math.round(strainEstimate * CONSERVATIVE_FACTOR);
 }

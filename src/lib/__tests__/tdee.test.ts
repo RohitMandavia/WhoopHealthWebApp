@@ -119,9 +119,9 @@ describe("estimateWorkoutKcalFromInputs", () => {
 
   it("strain-only estimate when no heart rate available", () => {
     const kcal = estimateWorkoutKcalFromInputs({ ...base, strain: 10 });
-    // met = 3 + 10 × 0.43 = 7.3; estimate = round(7.3 × 80 × 0.75) = 438
+    // met = 3 + 10 × 0.43 = 7.3; estimate = round(round(7.3 × 80 × 0.75) × 0.85) = 372
     expect(kcal).toBeGreaterThan(0);
-    expect(kcal).toBe(Math.round((3 + 10 * 0.43) * 80 * (45 / 60)));
+    expect(kcal).toBe(Math.round(Math.round((3 + 10 * 0.43) * 80 * (45 / 60)) * 0.85));
   });
 
   it("blends HR and strain when heart rate available", () => {
