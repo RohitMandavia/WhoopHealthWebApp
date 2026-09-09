@@ -216,6 +216,7 @@ model Todo {
   user      User     @relation(fields: [userId], references: [id])
   text      String
   done      Boolean  @default(false)
+  startDate String?  // "YYYY-MM-DD" — can't be worked on before this date
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
 }

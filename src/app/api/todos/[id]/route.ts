@@ -10,7 +10,16 @@ export async function PATCH(
   if (!userId) return NextResponse.json({ error: "not_logged_in" }, { status: 401 });
 
   const { id } = await params;
-  const data = await req.json();
+  const body = await req.json();
+
+  const data: { text?: string; done?: boolean; startDate?: string | null } = {};
+  if (typeof body.text === "string" && body.text.trim()) data.text = body.text.trim();
+  if (typeof body.done === "boolean") data.done = body.done;
+  if ("startDate" in body) {
+    if (body.startDate == null || body.startDate === "") data.startDate = null;
+    else if (/^\d{4}-\d{2}-\d{2}$/.test(body.startDate)) data.startDate = body.startDate;
+    else return NextResponse.json({ error: "bad_date" }, { status: 400 });
+  }
 
   try {
     const todo = await prisma.todo.update({ where: { id, userId }, data });
