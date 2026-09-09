@@ -34,6 +34,13 @@ function formatDate(date: string) {
   });
 }
 
+// <input type="date"> emits intermediate values while a year is being typed
+// ("0002-12-08" on the first keystroke of 2026), so only complete, sane dates
+// are ever committed.
+function isValidDate(v: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(v) && Number(v.slice(0, 4)) >= 1900;
+}
+
 function waitLabel(date: string, today: string) {
   const d = daysUntil(date, today);
   if (d <= 0) return "today";
@@ -46,7 +53,6 @@ function waitLabel(date: string, today: string) {
 export default function TodoSection({ userId, isOwner }: TodoSectionProps) {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [input, setInput] = useState("");
-  const [inputDate, setInputDate] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [dateEditingId, setDateEditingId] = useState<string | null>(null);
@@ -54,6 +60,7 @@ export default function TodoSection({ userId, isOwner }: TodoSectionProps) {
   const [dragOver, setDragOver] = useState<number | null>(null);
   const [today, setToday] = useState(todayStr);
   const inputRef = useRef<HTMLInputElement>(null);
+  const inputDateRef = useRef<HTMLInputElement>(null);
   const editRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -76,12 +83,14 @@ export default function TodoSection({ userId, isOwner }: TodoSectionProps) {
   async function addTodo() {
     const text = input.trim();
     if (!text) return;
+    const raw = inputDateRef.current?.value ?? "";
+    const startDate = isValidDate(raw) ? raw : null;
     setInput("");
-    setInputDate("");
+    if (inputDateRef.current) inputDateRef.current.value = "";
     const res = await fetch("/api/todos", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, startDate: inputDate || null }),
+      body: JSON.stringify({ text, startDate }),
     });
     const { todo } = await res.json();
     setTodos((prev) => [...prev, todo]);
@@ -125,6 +134,13 @@ export default function TodoSection({ userId, isOwner }: TodoSectionProps) {
   function cancelEdit() {
     setEditingId(null);
     setEditText("");
+  }
+
+  // Called on blur/Enter only — an incomplete date leaves the task unchanged.
+  function commitDate(todo: Todo, raw: string) {
+    setDateEditingId(null);
+    const next = raw === "" ? null : isValidDate(raw) ? raw : todo.startDate;
+    if (next !== todo.startDate) setStartDate(todo.id, next);
   }
 
   async function setStartDate(id: string, startDate: string | null) {
@@ -190,9 +206,14 @@ export default function TodoSection({ userId, isOwner }: TodoSectionProps) {
           type="date"
           autoFocus
           defaultValue={todo.startDate ?? ""}
-          onChange={(e) => setStartDate(todo.id, e.target.value || null)}
-          onBlur={() => setDateEditingId(null)}
-          onKeyDown={(e) => e.key === "Escape" && setDateEditingId(null)}
+          onBlur={(e) => commitDate(todo, e.currentTarget.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.currentTarget.blur();
+            if (e.key === "Escape") {
+              e.currentTarget.value = todo.startDate ?? "";
+              e.currentTarget.blur();
+            }
+          }}
           className="shrink-0 rounded border border-input bg-background px-1 py-0.5 text-xs"
         />
       );
@@ -341,10 +362,9 @@ export default function TodoSection({ userId, isOwner }: TodoSectionProps) {
             className="flex-1 rounded border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
           />
           <input
+            ref={inputDateRef}
             type="date"
-            value={inputDate}
             min={today}
-            onChange={(e) => setInputDate(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && addTodo()}
             title="Optional: don't surface this until this date"
             className="rounded border border-input bg-background px-2 py-1.5 text-sm text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
