@@ -61,6 +61,7 @@ export default function TodoSection({ userId, isOwner }: TodoSectionProps) {
   const [today, setToday] = useState(todayStr);
   const inputRef = useRef<HTMLInputElement>(null);
   const inputDateRef = useRef<HTMLInputElement>(null);
+  const dateInputRef = useRef<HTMLInputElement>(null);
   const editRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -136,7 +137,8 @@ export default function TodoSection({ userId, isOwner }: TodoSectionProps) {
     setEditText("");
   }
 
-  // Called on blur/Enter only — an incomplete date leaves the task unchanged.
+  // Only reached from the explicit ✓ / Enter — browsing months in the native
+  // picker fires change/blur events that must never save anything.
   function commitDate(todo: Todo, raw: string) {
     setDateEditingId(null);
     const next = raw === "" ? null : isValidDate(raw) ? raw : todo.startDate;
@@ -202,20 +204,35 @@ export default function TodoSection({ userId, isOwner }: TodoSectionProps) {
     if (!isOwner) return null;
     if (dateEditingId === todo.id) {
       return (
-        <input
-          type="date"
-          autoFocus
-          defaultValue={todo.startDate ?? ""}
-          onBlur={(e) => commitDate(todo, e.currentTarget.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") e.currentTarget.blur();
-            if (e.key === "Escape") {
-              e.currentTarget.value = todo.startDate ?? "";
-              e.currentTarget.blur();
-            }
-          }}
-          className="shrink-0 rounded border border-input bg-background px-1 py-0.5 text-xs"
-        />
+        <span className="flex shrink-0 items-center gap-1">
+          <input
+            ref={dateInputRef}
+            type="date"
+            autoFocus
+            defaultValue={todo.startDate ?? ""}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commitDate(todo, e.currentTarget.value);
+              if (e.key === "Escape") setDateEditingId(null);
+            }}
+            className="rounded border border-input bg-background px-1 py-0.5 text-xs"
+          />
+          <button
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => commitDate(todo, dateInputRef.current?.value ?? "")}
+            title="Save date (Enter)"
+            className="rounded px-1 text-xs text-primary hover:bg-primary/10 transition-colors"
+          >
+            ✓
+          </button>
+          <button
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => setDateEditingId(null)}
+            title="Cancel (Esc)"
+            className="rounded px-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
+          >
+            ✕
+          </button>
+        </span>
       );
     }
     if (todo.startDate) {
@@ -241,7 +258,7 @@ export default function TodoSection({ userId, isOwner }: TodoSectionProps) {
       <button
         onClick={() => setDateEditingId(todo.id)}
         title="Schedule for later"
-        className="shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground transition-all"
+        className="shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-primary transition-all"
       >
         <CalendarClock size={13} />
       </button>

@@ -129,3 +129,14 @@
     @apply font-sans;
   }
 }
+/* Without this the native picker icon renders near-black and the calendar
+   dropdown renders light, both unreadable on the dark card background. */
+.dark input[type="date"] {
+  color-scheme: dark;
+}
+.dark input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 0.6;
+}
+.dark input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
