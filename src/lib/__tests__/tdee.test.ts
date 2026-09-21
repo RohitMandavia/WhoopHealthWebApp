@@ -173,4 +173,22 @@ describe("estimateWorkoutKcalFromInputs", () => {
     const heavy = estimateWorkoutKcalFromInputs({ ...base, weightKg: 100, strain: 10 });
     expect(heavy).toBeGreaterThan(light);
   });
+
+  it("returns 0 for generic 'Activity' entries regardless of strain/HR", () => {
+    const kcal = estimateWorkoutKcalFromInputs({ ...base, strain: 15, avgHeartRate: 160, sportName: "Activity" });
+    expect(kcal).toBe(0);
+  });
+
+  it("weight training uses a flat ~5 kcal/min baseline, not the strain model", () => {
+    const kcal = estimateWorkoutKcalFromInputs({ ...base, strain: 18, sportName: "Weightlifting" });
+    expect(kcal).toBe(Math.round(5 * base.durationMin));
+  });
+
+  it("weight training calories stay within ±20% of baseline when HR is known", () => {
+    const baseline = 5 * base.durationMin;
+    const low = estimateWorkoutKcalFromInputs({ ...base, avgHeartRate: 90, sportName: "Weight Training" });
+    const high = estimateWorkoutKcalFromInputs({ ...base, avgHeartRate: 160, sportName: "Weight Training" });
+    expect(low).toBeGreaterThanOrEqual(Math.round(baseline * 0.8));
+    expect(high).toBeLessThanOrEqual(Math.round(baseline * 1.2));
+  });
 });

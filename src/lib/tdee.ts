@@ -46,11 +46,17 @@ export interface WorkoutInputs {
   weightKg: number;
   age: number;
   sex?: string | null;
+  sportName?: string | null;
 }
 
 // Applied to the final estimate to correct for the well-documented tendency
 // of HR/strain-based formulas (and wearables) to overestimate calorie burn.
 const CONSERVATIVE_FACTOR = 0.85;
+
+// Weight training gets a flat baseline instead of the strain/HR model below,
+// which runs far too hot for low-cardio lifting sessions.
+const WEIGHT_TRAINING_KCAL_PER_MIN = 5; // ≈300 kcal/hour
+const WEIGHT_TRAINING_NOMINAL_HR = 115;
 
 export function estimateWorkoutKcalFromInputs({
   durationMin,
@@ -59,8 +65,23 @@ export function estimateWorkoutKcalFromInputs({
   weightKg,
   age,
   sex,
+  sportName,
 }: WorkoutInputs): number {
   if (durationMin <= 0) return 0;
+
+  const sport = sportName?.toLowerCase() ?? "";
+
+  // Generic "Activity" entries are too vague to estimate reliably — skip.
+  if (sport === "activity") return 0;
+
+  if (sport.includes("weight")) {
+    const baseline = WEIGHT_TRAINING_KCAL_PER_MIN * durationMin;
+    if (avgHeartRate != null) {
+      const hrFactor = Math.min(1.2, Math.max(0.8, avgHeartRate / WEIGHT_TRAINING_NOMINAL_HR));
+      return Math.round(baseline * hrFactor);
+    }
+    return Math.round(baseline);
+  }
 
   const met = 3 + (strain ?? 5) * 0.43;
   const strainEstimate = Math.round(met * weightKg * (durationMin / 60));

@@ -22,6 +22,11 @@ interface Stats {
 // of HR/strain-based formulas (and wearables) to overestimate calorie burn.
 const CONSERVATIVE_FACTOR = 0.85;
 
+// Weight training gets a flat baseline instead of the strain/HR model below,
+// which runs far too hot for low-cardio lifting sessions.
+const WEIGHT_TRAINING_KCAL_PER_MIN = 5; // ≈300 kcal/hour
+const WEIGHT_TRAINING_NOMINAL_HR = 115;
+
 export function estimateWorkoutKcal(
   workout: WhoopDaily["workouts"][number],
   weightKg: number,
@@ -30,6 +35,20 @@ export function estimateWorkoutKcal(
 ): number {
   const durationMin = (new Date(workout.end).getTime() - new Date(workout.start).getTime()) / 60000;
   if (durationMin <= 0) return 0;
+
+  const sport = workout.sportName?.toLowerCase() ?? "";
+
+  // Generic "Activity" entries are too vague to estimate reliably — skip.
+  if (sport === "activity") return 0;
+
+  if (sport.includes("weight")) {
+    const baseline = WEIGHT_TRAINING_KCAL_PER_MIN * durationMin;
+    if (workout.avgHeartRate != null) {
+      const hrFactor = Math.min(1.2, Math.max(0.8, workout.avgHeartRate / WEIGHT_TRAINING_NOMINAL_HR));
+      return Math.round(baseline * hrFactor);
+    }
+    return Math.round(baseline);
+  }
 
   // Strain-based estimate: map Whoop strain (0–21) to MET (3–12)
   const met = 3 + (workout.strain ?? 5) * 0.43;
