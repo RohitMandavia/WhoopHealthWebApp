@@ -6,6 +6,7 @@ import { calcBMR } from "@/lib/tdee";
 import { estimateWorkoutKcal } from "./BodyMetrics";
 import type { FoodItem, WhoopDaily } from "@/types";
 import DailySummaryButton from "./DailySummaryButton";
+import FoodSuggestions from "./FoodSuggestions";
 
 interface Props {
   items: FoodItem[];
@@ -438,6 +439,13 @@ export default function MacroProgress({ items, date, userId, isOwner }: Props) {
     addedSugar: items.reduce((s, i) => s + (i.addedSugar ?? 0), 0),
   };
 
+  const remaining = {
+    kcal:    Math.max(0, targets.kcal    - current.kcal),
+    protein: Math.max(0, targets.protein - current.protein),
+    carbs:   Math.max(0, targets.carbs   - current.carbs),
+    fat:     Math.max(0, targets.fat     - current.fat),
+  };
+
   const calProgress     = targets.kcal    > 0 ? current.kcal    / targets.kcal    : 0;
   const proteinProgress = targets.protein > 0 ? current.protein / targets.protein : 0;
   const carbProgress    = targets.carbs   > 0 ? current.carbs   / targets.carbs   : 0;
@@ -642,6 +650,8 @@ export default function MacroProgress({ items, date, userId, isOwner }: Props) {
           </div>
         )}
       </div>
+
+      {isOwner && <FoodSuggestions remaining={remaining} />}
 
       <DailySummaryButton date={date} userId={userId} targets={targets} />
     </div>
