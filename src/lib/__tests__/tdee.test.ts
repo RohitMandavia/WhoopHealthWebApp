@@ -179,6 +179,11 @@ describe("estimateWorkoutKcalFromInputs", () => {
     expect(kcal).toBe(0);
   });
 
+  it("returns 0 for walking regardless of strain/HR", () => {
+    const kcal = estimateWorkoutKcalFromInputs({ ...base, strain: 15, avgHeartRate: 160, sportName: "Walking" });
+    expect(kcal).toBe(0);
+  });
+
   it("weight training uses a flat ~5 kcal/min baseline, not the strain model", () => {
     const kcal = estimateWorkoutKcalFromInputs({ ...base, strain: 18, sportName: "Weightlifting" });
     expect(kcal).toBe(Math.round(5 * base.durationMin));

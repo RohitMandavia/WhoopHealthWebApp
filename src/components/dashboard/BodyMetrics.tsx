@@ -38,8 +38,9 @@ export function estimateWorkoutKcal(
 
   const sport = workout.sportName?.toLowerCase() ?? "";
 
-  // Generic "Activity" entries are too vague to estimate reliably — skip.
-  if (sport === "activity") return 0;
+  // Generic "Activity" entries are too vague to estimate reliably, and walking
+  // is already accounted for via manually-entered steps — skip both.
+  if (sport === "activity" || sport.includes("walk")) return 0;
 
   if (sport.includes("weight")) {
     const baseline = WEIGHT_TRAINING_KCAL_PER_MIN * durationMin;
