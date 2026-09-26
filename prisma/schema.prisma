@@ -219,6 +219,12 @@ model Todo {
   startDate String?  // "YYYY-MM-DD" — can't be worked on before this date
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
+  // Family grouping — one level only. Purely organizational (no ordering/blocking
+  // is enforced between parent and children). Deleting the parent ungroups its
+  // children rather than deleting them.
+  parentId  String?
+  parent    Todo?    @relation("TodoFamily", fields: [parentId], references: [id], onDelete: SetNull)
+  children  Todo[]   @relation("TodoFamily")
 }
 
 model FoodPreset {

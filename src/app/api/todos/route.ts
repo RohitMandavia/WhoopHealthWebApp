@@ -19,13 +19,20 @@ export async function POST(req: NextRequest) {
   const userId = getCurrentUserId(req);
   if (!userId) return NextResponse.json({ error: "not_logged_in" }, { status: 401 });
 
-  const { text, startDate } = await req.json();
+  const { text, startDate, parentId } = await req.json();
   if (!text?.trim()) return NextResponse.json({ error: "empty" }, { status: 400 });
   if (startDate != null && !/^\d{4}-\d{2}-\d{2}$/.test(startDate))
     return NextResponse.json({ error: "bad_date" }, { status: 400 });
 
+  let parent: { id: string; parentId: string | null } | null = null;
+  if (parentId != null) {
+    parent = await prisma.todo.findFirst({ where: { id: parentId, userId }, select: { id: true, parentId: true } });
+    if (!parent) return NextResponse.json({ error: "parent_not_found" }, { status: 404 });
+    if (parent.parentId) return NextResponse.json({ error: "nesting_too_deep" }, { status: 400 });
+  }
+
   const last = await prisma.todo.findFirst({
-    where: { userId },
+    where: { userId, parentId: parent?.id ?? null },
     orderBy: { sortOrder: "desc" },
     select: { sortOrder: true },
   });
@@ -35,6 +42,7 @@ export async function POST(req: NextRequest) {
       userId,
       text: text.trim(),
       startDate: startDate || null,
+      parentId: parent?.id ?? null,
       sortOrder: (last?.sortOrder ?? -1) + 1,
     },
   });

@@ -9,11 +9,20 @@ interface Todo {
   done: boolean;
   startDate: string | null; // "YYYY-MM-DD" — not actionable before this date
   sortOrder: number;
+  parentId: string | null; // family grouping — one level only, purely organizational
 }
 
 interface TodoSectionProps {
   userId: string;
   isOwner: boolean;
+}
+
+// Drag-and-drop reordering is scoped to a "group" — either the top-level list
+// ("top") or a specific family's children (the parent's id) — so items never
+// get dragged between a family and the top level.
+interface DragPos {
+  group: string;
+  index: number;
 }
 
 function todayStr() {
@@ -56,13 +65,16 @@ export default function TodoSection({ userId, isOwner }: TodoSectionProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [dateEditingId, setDateEditingId] = useState<string | null>(null);
-  const [dragFrom, setDragFrom] = useState<number | null>(null);
-  const [dragOver, setDragOver] = useState<number | null>(null);
+  const [dragFrom, setDragFrom] = useState<DragPos | null>(null);
+  const [dragOver, setDragOver] = useState<DragPos | null>(null);
   const [today, setToday] = useState(todayStr);
+  const [addingSubtaskFor, setAddingSubtaskFor] = useState<string | null>(null);
+  const [subtaskInput, setSubtaskInput] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const inputDateRef = useRef<HTMLInputElement>(null);
   const dateInputRef = useRef<HTMLInputElement>(null);
   const editRef = useRef<HTMLInputElement>(null);
+  const subtaskRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch(`/api/todos?userId=${userId}`)
@@ -73,6 +85,10 @@ export default function TodoSection({ userId, isOwner }: TodoSectionProps) {
   useEffect(() => {
     if (editingId) editRef.current?.focus();
   }, [editingId]);
+
+  useEffect(() => {
+    if (addingSubtaskFor) subtaskRef.current?.focus();
+  }, [addingSubtaskFor]);
 
   // Roll scheduled items into the active list when the real date catches up,
   // even if the tab has been left open across midnight.
@@ -98,6 +114,20 @@ export default function TodoSection({ userId, isOwner }: TodoSectionProps) {
     inputRef.current?.focus();
   }
 
+  async function addSubtask(parentId: string) {
+    const text = subtaskInput.trim();
+    if (!text) { setAddingSubtaskFor(null); return; }
+    setSubtaskInput("");
+    const res = await fetch("/api/todos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, parentId }),
+    });
+    const data = await res.json();
+    if (data.todo) setTodos((prev) => [...prev, data.todo]);
+    setAddingSubtaskFor(null);
+  }
+
   async function toggleDone(id: string) {
     const todo = todos.find((t) => t.id === id);
     if (!todo) return;
@@ -110,9 +140,25 @@ export default function TodoSection({ userId, isOwner }: TodoSectionProps) {
     });
   }
 
+  // Deleting a family's parent ungroups its children (they become standalone
+  // top-level tasks) rather than deleting them — matches the server's onDelete:
+  // SetNull behavior on Todo.parentId.
   async function deleteTodo(id: string) {
-    setTodos((prev) => prev.filter((t) => t.id !== id));
+    setTodos((prev) =>
+      prev
+        .filter((t) => t.id !== id)
+        .map((t) => (t.parentId === id ? { ...t, parentId: null } : t))
+    );
     fetch(`/api/todos/${id}`, { method: "DELETE" });
+  }
+
+  async function ungroupTodo(id: string) {
+    setTodos((prev) => prev.map((t) => (t.id === id ? { ...t, parentId: null } : t)));
+    fetch(`/api/todos/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ parentId: null }),
+    });
   }
 
   function startEdit(todo: Todo) {
@@ -155,36 +201,41 @@ export default function TodoSection({ userId, isOwner }: TodoSectionProps) {
     });
   }
 
-  function handleDragStart(e: React.DragEvent, index: number) {
-    setDragFrom(index);
+  function handleDragStart(e: React.DragEvent, group: string, index: number) {
+    setDragFrom({ group, index });
     e.dataTransfer.effectAllowed = "move";
   }
 
-  function handleDragOver(e: React.DragEvent, index: number) {
+  function handleDragOver(e: React.DragEvent, group: string, index: number) {
+    if (dragFrom?.group !== group) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
-    if (dragOver !== index) setDragOver(index);
+    if (dragOver?.group !== group || dragOver?.index !== index) setDragOver({ group, index });
   }
 
-  // Reordering applies to the active list only; scheduled items keep their
-  // date ordering but are re-numbered after the active ones so they stay last.
-  async function handleDrop(index: number) {
-    if (dragFrom === null || dragFrom === index) {
+  // Reordering applies within a single group only (the top-level list, or one
+  // family's children). `list` is that group's items in their current order.
+  async function handleDrop(group: string, index: number, list: Todo[]) {
+    if (dragFrom === null || dragFrom.group !== group || dragFrom.index === index) {
       setDragFrom(null);
       setDragOver(null);
       return;
     }
-    const reordered = [...active];
-    const [moved] = reordered.splice(dragFrom, 1);
+    const reordered = [...list];
+    const [moved] = reordered.splice(dragFrom.index, 1);
     reordered.splice(index, 0, moved);
     setDragFrom(null);
     setDragOver(null);
-    const order = [...reordered, ...scheduled];
-    setTodos(order.map((t, i) => ({ ...t, sortOrder: i })));
+    const reorderedIds = new Set(reordered.map((t) => t.id));
+    setTodos((prev) => {
+      const withoutGroup = prev.filter((t) => !reorderedIds.has(t.id));
+      const renumbered = reordered.map((t, i) => ({ ...t, sortOrder: i }));
+      return [...withoutGroup, ...renumbered];
+    });
     fetch("/api/todos/reorder", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids: order.map((t) => t.id) }),
+      body: JSON.stringify({ ids: reordered.map((t) => t.id) }),
     });
   }
 
@@ -194,8 +245,15 @@ export default function TodoSection({ userId, isOwner }: TodoSectionProps) {
   }
 
   const isScheduled = (t: Todo) => !t.done && !!t.startDate && t.startDate > today;
-  const active = todos.filter((t) => !isScheduled(t));
-  const scheduled = todos
+
+  // Bucketing (active vs. scheduled) is decided by the top-level task only —
+  // a family always renders together, wherever its parent lands.
+  const topLevel = todos.filter((t) => !t.parentId);
+  const childrenOf = (parentId: string) =>
+    todos.filter((t) => t.parentId === parentId).sort((a, b) => a.sortOrder - b.sortOrder);
+
+  const active = topLevel.filter((t) => !isScheduled(t));
+  const scheduled = topLevel
     .filter(isScheduled)
     .sort((a, b) => a.startDate!.localeCompare(b.startDate!));
   const done = todos.filter((t) => t.done);
@@ -265,22 +323,23 @@ export default function TodoSection({ userId, isOwner }: TodoSectionProps) {
     );
   }
 
-  function row(todo: Todo, opts: { index?: number; dim?: boolean } = {}) {
-    const { index, dim } = opts;
-    const draggable = isOwner && index !== undefined && editingId !== todo.id;
-    const isDragging = index !== undefined && dragFrom === index;
-    const isOver = index !== undefined && dragOver === index && dragFrom !== index;
+  function row(todo: Todo, opts: { group?: string; index?: number; list?: Todo[]; dim?: boolean; nested?: boolean } = {}) {
+    const { group, index, list, dim, nested } = opts;
+    const draggable = isOwner && group !== undefined && index !== undefined && editingId !== todo.id;
+    const isDragging = group !== undefined && index !== undefined && dragFrom?.group === group && dragFrom.index === index;
+    const isOver = group !== undefined && index !== undefined && dragOver?.group === group && dragOver.index === index && !isDragging;
 
     return (
       <li
         key={todo.id}
         draggable={draggable}
-        onDragStart={index !== undefined ? (e) => handleDragStart(e, index) : undefined}
-        onDragOver={index !== undefined ? (e) => handleDragOver(e, index) : undefined}
-        onDrop={index !== undefined ? () => handleDrop(index) : undefined}
-        onDragEnd={index !== undefined ? handleDragEnd : undefined}
+        onDragStart={draggable ? (e) => handleDragStart(e, group!, index!) : undefined}
+        onDragOver={group !== undefined && index !== undefined ? (e) => handleDragOver(e, group, index) : undefined}
+        onDrop={group !== undefined && index !== undefined && list ? () => handleDrop(group, index, list) : undefined}
+        onDragEnd={draggable ? handleDragEnd : undefined}
         className={[
           "group flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors",
+          nested ? "ml-5 border-l border-border pl-3" : "",
           isDragging ? "opacity-40" : "",
           dim ? "opacity-60" : "",
           isOver ? "ring-1 ring-primary/60 bg-primary/5" : "hover:bg-muted/40",
@@ -336,6 +395,26 @@ export default function TodoSection({ userId, isOwner }: TodoSectionProps) {
 
         {dateControl(todo)}
 
+        {isOwner && !nested && (
+          <button
+            onClick={() => setAddingSubtaskFor(addingSubtaskFor === todo.id ? null : todo.id)}
+            title="Add a related task under this one"
+            className="shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-primary transition-all text-xs"
+          >
+            + Subtask
+          </button>
+        )}
+
+        {isOwner && nested && (
+          <button
+            onClick={() => ungroupTodo(todo.id)}
+            title="Remove from family"
+            className="shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground transition-all text-[11px]"
+          >
+            Ungroup
+          </button>
+        )}
+
         {isOwner && (
           <button
             onClick={() => deleteTodo(todo.id)}
@@ -349,6 +428,37 @@ export default function TodoSection({ userId, isOwner }: TodoSectionProps) {
     );
   }
 
+  function familyBlock(parent: Todo, opts: { index?: number; group?: string; list?: Todo[]; dim?: boolean }) {
+    const kids = childrenOf(parent.id);
+    return (
+      <div key={parent.id}>
+        {row(parent, { group: opts.group, index: opts.index, list: opts.list, dim: opts.dim })}
+        {kids.length > 0 && (
+          <ul>
+            {kids.map((child, i) => row(child, { group: parent.id, index: i, list: kids, dim: opts.dim, nested: true }))}
+          </ul>
+        )}
+        {addingSubtaskFor === parent.id && (
+          <div className="ml-5 border-l border-border pl-3 flex items-center gap-2 px-2 py-1">
+            <input
+              ref={subtaskRef}
+              type="text"
+              placeholder="Related task…"
+              value={subtaskInput}
+              onChange={(e) => setSubtaskInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") addSubtask(parent.id);
+                if (e.key === "Escape") { setAddingSubtaskFor(null); setSubtaskInput(""); }
+              }}
+              onBlur={() => addSubtask(parent.id)}
+              className="flex-1 bg-transparent text-sm focus:outline-none border-b border-primary"
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-lg border bg-card p-4 space-y-3">
       <div className="flex items-center justify-between">
@@ -357,7 +467,11 @@ export default function TodoSection({ userId, isOwner }: TodoSectionProps) {
           <button
             onClick={async () => {
               const ids = done.map((t) => t.id);
-              setTodos((prev) => prev.filter((t) => !t.done));
+              setTodos((prev) =>
+                prev
+                  .filter((t) => !t.done)
+                  .map((t) => (t.parentId && ids.includes(t.parentId) ? { ...t, parentId: null } : t))
+              );
               await Promise.all(ids.map((id) => fetch(`/api/todos/${id}`, { method: "DELETE" })));
             }}
             className="text-xs text-muted-foreground hover:text-destructive transition-colors"
@@ -400,7 +514,11 @@ export default function TodoSection({ userId, isOwner }: TodoSectionProps) {
         <p className="text-xs text-muted-foreground text-center py-2">No tasks yet.</p>
       )}
 
-      {active.length > 0 && <ul className="space-y-0.5">{active.map((t, i) => row(t, { index: i }))}</ul>}
+      {active.length > 0 && (
+        <div className="space-y-0.5">
+          {active.map((t, i) => familyBlock(t, { group: "top", index: i, list: active }))}
+        </div>
+      )}
 
       {scheduled.length > 0 && (
         <div className="space-y-0.5 pt-1">
@@ -411,7 +529,9 @@ export default function TodoSection({ userId, isOwner }: TodoSectionProps) {
             <span className="text-[11px] text-muted-foreground/60">{scheduled.length}</span>
             <div className="h-px flex-1 bg-border" />
           </div>
-          <ul className="space-y-0.5">{scheduled.map((t) => row(t, { dim: true }))}</ul>
+          <div className="space-y-0.5">
+            {scheduled.map((t) => familyBlock(t, { dim: true }))}
+          </div>
         </div>
       )}
 
