@@ -17,12 +17,15 @@ interface TodoSectionProps {
   isOwner: boolean;
 }
 
-// Drag-and-drop reordering is scoped to a "group" — either the top-level list
-// ("top") or a specific family's children (the parent's id) — so items never
-// get dragged between a family and the top level.
-interface DragPos {
-  group: string;
-  index: number;
+// Where a drag would land relative to the row being hovered: "before"/"after"
+// reorder as a sibling in that row's own group (which may reparent the
+// dragged task into or out of a family); "into" nests the dragged task as a
+// new child of the hovered row (only offered on top-level rows, keeping
+// nesting to one level).
+type DropZone = "before" | "after" | "into";
+interface DropTarget {
+  id: string;
+  zone: DropZone;
 }
 
 function todayStr() {
@@ -65,8 +68,8 @@ export default function TodoSection({ userId, isOwner }: TodoSectionProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [dateEditingId, setDateEditingId] = useState<string | null>(null);
-  const [dragFrom, setDragFrom] = useState<DragPos | null>(null);
-  const [dragOver, setDragOver] = useState<DragPos | null>(null);
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
   const [today, setToday] = useState(todayStr);
   const [addingSubtaskFor, setAddingSubtaskFor] = useState<string | null>(null);
   const [subtaskInput, setSubtaskInput] = useState("");
@@ -110,7 +113,7 @@ export default function TodoSection({ userId, isOwner }: TodoSectionProps) {
       body: JSON.stringify({ text, startDate }),
     });
     const { todo } = await res.json();
-    setTodos((prev) => [...prev, todo]);
+    setTodos((prev) => [todo, ...prev]);
     inputRef.current?.focus();
   }
 
@@ -201,57 +204,95 @@ export default function TodoSection({ userId, isOwner }: TodoSectionProps) {
     });
   }
 
-  function handleDragStart(e: React.DragEvent, group: string, index: number) {
-    setDragFrom({ group, index });
+  const childrenOf = (parentId: string) =>
+    todos.filter((t) => t.parentId === parentId).sort((a, b) => a.sortOrder - b.sortOrder);
+
+  // Figures out where a drag over `target` would land, or null if that drop
+  // isn't allowed. Dropping in the top/bottom quarter of a row reorders as a
+  // sibling in the target's own group (before/after) — which reparents the
+  // dragged task if the target belongs to a different family (or none). The
+  // middle of a top-level row nests the dragged task into it. A task that
+  // already has children of its own can only be dropped as a top-level
+  // sibling, since a second level of nesting isn't allowed.
+  function computeDropZone(e: React.DragEvent, target: Todo): DropZone | null {
+    if (!draggedId || draggedId === target.id) return null;
+    if (target.parentId === draggedId) return null; // can't nest a task inside its own child
+
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const ratio = (e.clientY - rect.top) / rect.height;
+    const zone: DropZone = target.parentId
+      ? (ratio < 0.5 ? "before" : "after")
+      : (ratio < 0.25 ? "before" : ratio > 0.75 ? "after" : "into");
+
+    const newParentId = zone === "into" ? target.id : target.parentId;
+    if (newParentId === draggedId) return null;
+    const draggedHasChildren = todos.some((t) => t.parentId === draggedId);
+    if (draggedHasChildren && newParentId !== null) return null;
+
+    return zone;
+  }
+
+  function handleDragStart(e: React.DragEvent, id: string) {
+    setDraggedId(id);
     e.dataTransfer.effectAllowed = "move";
   }
 
-  function handleDragOver(e: React.DragEvent, group: string, index: number) {
-    if (dragFrom?.group !== group) return;
+  function handleDragOver(e: React.DragEvent, target: Todo) {
+    const zone = computeDropZone(e, target);
+    if (!zone) return; // no preventDefault — browser shows a "not allowed" cursor
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
-    if (dragOver?.group !== group || dragOver?.index !== index) setDragOver({ group, index });
+    if (dropTarget?.id !== target.id || dropTarget.zone !== zone) setDropTarget({ id: target.id, zone });
   }
 
-  // Reordering applies within a single group only (the top-level list, or one
-  // family's children). `list` is that group's items in their current order.
-  async function handleDrop(group: string, index: number, list: Todo[]) {
-    if (dragFrom === null || dragFrom.group !== group || dragFrom.index === index) {
-      setDragFrom(null);
-      setDragOver(null);
-      return;
-    }
-    const reordered = [...list];
-    const [moved] = reordered.splice(dragFrom.index, 1);
-    reordered.splice(index, 0, moved);
-    setDragFrom(null);
-    setDragOver(null);
-    const reorderedIds = new Set(reordered.map((t) => t.id));
+  async function handleDrop(e: React.DragEvent, target: Todo) {
+    const from = draggedId;
+    const zone = computeDropZone(e, target);
+    setDraggedId(null);
+    setDropTarget(null);
+    if (!from || !zone) return;
+    const dragged = todos.find((t) => t.id === from);
+    if (!dragged) return;
+
+    const newParentId = zone === "into" ? target.id : target.parentId;
+
+    const siblings = todos
+      .filter((t) => t.parentId === newParentId && t.id !== from)
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+    const insertAt = zone === "into" ? siblings.length : siblings.findIndex((t) => t.id === target.id) + (zone === "after" ? 1 : 0);
+
+    const reordered = [...siblings];
+    reordered.splice(insertAt, 0, { ...dragged, parentId: newParentId });
+    const renumbered = reordered.map((t, i) => ({ ...t, sortOrder: i }));
+    const renumberedIds = new Set(renumbered.map((t) => t.id));
+
     setTodos((prev) => {
-      const withoutGroup = prev.filter((t) => !reorderedIds.has(t.id));
-      const renumbered = reordered.map((t, i) => ({ ...t, sortOrder: i }));
-      return [...withoutGroup, ...renumbered];
+      const untouched = prev.filter((t) => !renumberedIds.has(t.id));
+      return [...untouched, ...renumbered];
+    });
+
+    await fetch(`/api/todos/${from}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ parentId: newParentId }),
     });
     fetch("/api/todos/reorder", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids: reordered.map((t) => t.id) }),
+      body: JSON.stringify({ ids: renumbered.map((t) => t.id) }),
     });
   }
 
   function handleDragEnd() {
-    setDragFrom(null);
-    setDragOver(null);
+    setDraggedId(null);
+    setDropTarget(null);
   }
 
   const isScheduled = (t: Todo) => !t.done && !!t.startDate && t.startDate > today;
 
   // Bucketing (active vs. scheduled) is decided by the top-level task only —
   // a family always renders together, wherever its parent lands.
-  const topLevel = todos.filter((t) => !t.parentId);
-  const childrenOf = (parentId: string) =>
-    todos.filter((t) => t.parentId === parentId).sort((a, b) => a.sortOrder - b.sortOrder);
-
+  const topLevel = todos.filter((t) => !t.parentId).sort((a, b) => a.sortOrder - b.sortOrder);
   const active = topLevel.filter((t) => !isScheduled(t));
   const scheduled = topLevel
     .filter(isScheduled)
@@ -323,26 +364,28 @@ export default function TodoSection({ userId, isOwner }: TodoSectionProps) {
     );
   }
 
-  function row(todo: Todo, opts: { group?: string; index?: number; list?: Todo[]; dim?: boolean; nested?: boolean } = {}) {
-    const { group, index, list, dim, nested } = opts;
-    const draggable = isOwner && group !== undefined && index !== undefined && editingId !== todo.id;
-    const isDragging = group !== undefined && index !== undefined && dragFrom?.group === group && dragFrom.index === index;
-    const isOver = group !== undefined && index !== undefined && dragOver?.group === group && dragOver.index === index && !isDragging;
+  function row(todo: Todo, opts: { draggable?: boolean; dim?: boolean; nested?: boolean } = {}) {
+    const { draggable: dragEnabled, dim, nested } = opts;
+    const draggable = isOwner && !!dragEnabled && editingId !== todo.id;
+    const isDragging = draggedId === todo.id;
+    const target = dropTarget?.id === todo.id ? dropTarget : null;
 
     return (
       <li
         key={todo.id}
         draggable={draggable}
-        onDragStart={draggable ? (e) => handleDragStart(e, group!, index!) : undefined}
-        onDragOver={group !== undefined && index !== undefined ? (e) => handleDragOver(e, group, index) : undefined}
-        onDrop={group !== undefined && index !== undefined && list ? () => handleDrop(group, index, list) : undefined}
+        onDragStart={draggable ? (e) => handleDragStart(e, todo.id) : undefined}
+        onDragOver={dragEnabled ? (e) => handleDragOver(e, todo) : undefined}
+        onDrop={dragEnabled ? (e) => handleDrop(e, todo) : undefined}
         onDragEnd={draggable ? handleDragEnd : undefined}
         className={[
           "group flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors",
           nested ? "ml-5 border-l border-border pl-3" : "",
           isDragging ? "opacity-40" : "",
           dim ? "opacity-60" : "",
-          isOver ? "ring-1 ring-primary/60 bg-primary/5" : "hover:bg-muted/40",
+          target?.zone === "before" ? "border-t-2 border-primary" : "border-t-2 border-transparent",
+          target?.zone === "after" ? "border-b-2 border-primary" : "border-b-2 border-transparent",
+          target?.zone === "into" ? "ring-1 ring-primary/60 bg-primary/10" : "hover:bg-muted/40",
         ].join(" ")}
       >
         {isOwner && (
@@ -353,7 +396,7 @@ export default function TodoSection({ userId, isOwner }: TodoSectionProps) {
                 ? "cursor-grab text-muted-foreground/40 hover:text-muted-foreground"
                 : "text-transparent",
             ].join(" ")}
-            title={draggable ? "Drag to reorder" : undefined}
+            title={draggable ? "Drag to reorder, or onto another task to group them" : undefined}
           >
             <GripVertical size={14} />
           </span>
@@ -428,14 +471,14 @@ export default function TodoSection({ userId, isOwner }: TodoSectionProps) {
     );
   }
 
-  function familyBlock(parent: Todo, opts: { index?: number; group?: string; list?: Todo[]; dim?: boolean }) {
+  function familyBlock(parent: Todo, opts: { draggable?: boolean; dim?: boolean }) {
     const kids = childrenOf(parent.id);
     return (
       <div key={parent.id}>
-        {row(parent, { group: opts.group, index: opts.index, list: opts.list, dim: opts.dim })}
+        {row(parent, opts)}
         {kids.length > 0 && (
           <ul>
-            {kids.map((child, i) => row(child, { group: parent.id, index: i, list: kids, dim: opts.dim, nested: true }))}
+            {kids.map((child) => row(child, { draggable: opts.draggable, dim: opts.dim, nested: true }))}
           </ul>
         )}
         {addingSubtaskFor === parent.id && (
@@ -516,7 +559,7 @@ export default function TodoSection({ userId, isOwner }: TodoSectionProps) {
 
       {active.length > 0 && (
         <div className="space-y-0.5">
-          {active.map((t, i) => familyBlock(t, { group: "top", index: i, list: active }))}
+          {active.map((t) => familyBlock(t, { draggable: true }))}
         </div>
       )}
 

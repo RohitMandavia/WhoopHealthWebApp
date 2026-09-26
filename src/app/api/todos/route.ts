@@ -31,9 +31,11 @@ export async function POST(req: NextRequest) {
     if (parent.parentId) return NextResponse.json({ error: "nesting_too_deep" }, { status: 400 });
   }
 
-  const last = await prisma.todo.findFirst({
+  // New tasks go to the top of their list (or the top of their family, for
+  // subtasks) — one below the current lowest sortOrder among siblings.
+  const first = await prisma.todo.findFirst({
     where: { userId, parentId: parent?.id ?? null },
-    orderBy: { sortOrder: "desc" },
+    orderBy: { sortOrder: "asc" },
     select: { sortOrder: true },
   });
 
@@ -43,7 +45,7 @@ export async function POST(req: NextRequest) {
       text: text.trim(),
       startDate: startDate || null,
       parentId: parent?.id ?? null,
-      sortOrder: (last?.sortOrder ?? -1) + 1,
+      sortOrder: (first?.sortOrder ?? 0) - 1,
     },
   });
   return NextResponse.json({ todo });
