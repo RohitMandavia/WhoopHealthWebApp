@@ -9,13 +9,10 @@ export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const userId = searchParams.get("userId") ?? callerId;
 
-  // Return last 90 days of entries
-  const since = new Date();
-  since.setDate(since.getDate() - 90);
-  const sinceStr = since.toISOString().split("T")[0];
-
+  // Return full history — the chart lets the user pick how far back to look,
+  // and a moving average needs a week of lead-in before its start date anyway.
   const entries = await prisma.weightEntry.findMany({
-    where: { userId, date: { gte: sinceStr } },
+    where: { userId },
     orderBy: { date: "asc" },
     select: { date: true, weightLbs: true },
   });
