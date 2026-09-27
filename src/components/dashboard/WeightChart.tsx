@@ -12,15 +12,10 @@ interface Props {
   targetWeight: number | null;
 }
 
-// Explicit dark-theme colors — CSS variables don't resolve inside Recharts SVG.
-// The moving-average orange is picked to pair with the existing indigo: distinct
-// hues on the blue/orange axis, which stays distinguishable under every common
-// form of color-vision deficiency (validated via the dataviz skill's palette
-// checker — CVD ΔE 28.2, normal-vision ΔE 29.7 against the indigo).
+// Explicit dark-theme colors — CSS variables don't resolve inside Recharts SVG
 const COLORS = {
-  line:       "#818cf8", // indigo-400 — actual logged weight
+  line:       "#818cf8", // indigo-400
   dot:        "#818cf8",
-  average:    "#d95926", // orange — 7-day moving average
   tick:       "#6b7280", // gray-500
   tooltip:    "#1e2235", // card background
   border:     "#3f4560", // card border
@@ -32,25 +27,11 @@ function fmtDate(d: string) {
   return `${parseInt(m)}/${parseInt(day)}`;
 }
 
-// Average of whatever real entries fall in the trailing 7 calendar days
-// (inclusive) ending on `d` — not a strict daily rolling average, since
-// weigh-ins can have gaps. Null when there's nothing in that window.
-function movingAverageAt(d: string, entries: Entry[]): number | null {
-  const end = new Date(d + "T12:00:00Z").getTime();
-  const start = end - 6 * 86400000;
-  const inWindow = entries.filter((e) => {
-    const t = new Date(e.date + "T12:00:00Z").getTime();
-    return t >= start && t <= end;
-  });
-  if (inWindow.length === 0) return null;
-  return inWindow.reduce((s, e) => s + e.weightLbs, 0) / inWindow.length;
-}
-
 export default function WeightChart({ date, userId, isOwner, targetWeight }: Props) {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [input, setInput] = useState("");
   const [saving, setSaving] = useState(false);
-  const [startDate, setStartDate] = useState(""); // "" = automatic window
+  const [startDate, setStartDateState] = useState(""); // "" = automatic window
 
   useEffect(() => {
     fetch(`/api/weight?userId=${userId}`)
@@ -63,6 +44,23 @@ export default function WeightChart({ date, userId, isOwner, targetWeight }: Pro
       })
       .catch(() => {});
   }, [date, userId]);
+
+  useEffect(() => {
+    fetch(`/api/user/stats?userId=${userId}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => setStartDateState(d?.stats?.weightChartStartDate ?? ""))
+      .catch(() => {});
+  }, [userId]);
+
+  function setStartDate(next: string) {
+    setStartDateState(next);
+    if (!isOwner) return;
+    fetch("/api/user/stats", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ weightChartStartDate: next || null }),
+    });
+  }
 
   async function handleSave() {
     if (!isOwner || saving) return;
@@ -109,21 +107,23 @@ export default function WeightChart({ date, userId, isOwner, targetWeight }: Pro
   const windowStart = startDate && startDate <= windowEnd ? startDate : autoStart;
 
   // Generate every date in the range
-  const chartData: { date: string; weightLbs: number | null; movingAvg: number | null }[] = [];
+  const chartData: { date: string; weightLbs: number | null }[] = [];
   const cursor = new Date(windowStart + "T12:00:00Z");
   const end    = new Date(windowEnd   + "T12:00:00Z");
   while (cursor <= end) {
     const d = cursor.toISOString().split("T")[0];
-    chartData.push({ date: d, weightLbs: entryMap.get(d) ?? null, movingAvg: movingAverageAt(d, entries) });
+    chartData.push({ date: d, weightLbs: entryMap.get(d) ?? null });
     cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
 
-  const actualValues = [
+  // Always include the goal weight in the range so its reference line never
+  // gets clipped off the edge of the chart.
+  const rangeValues = [
     ...entries.filter((e) => e.date >= windowStart).map((e) => e.weightLbs),
-    ...chartData.map((c) => c.movingAvg).filter((v): v is number => v != null),
+    ...(targetWeight != null ? [targetWeight] : []),
   ];
-  const yMin = actualValues.length > 0 ? Math.floor(Math.min(...actualValues) - 2) : undefined;
-  const yMax = actualValues.length > 0 ? Math.ceil(Math.max(...actualValues)  + 2) : undefined;
+  const yMin = rangeValues.length > 0 ? Math.floor(Math.min(...rangeValues) - 2) : undefined;
+  const yMax = rangeValues.length > 0 ? Math.ceil(Math.max(...rangeValues)  + 2) : undefined;
 
   return (
     <div className="space-y-3">
@@ -149,17 +149,7 @@ export default function WeightChart({ date, userId, isOwner, targetWeight }: Pro
 
       {entries.length >= 1 && (
         <div className="space-y-1.5">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: COLORS.dot }} />
-                Weight
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: COLORS.average }} />
-                7-day avg
-              </span>
-            </div>
+          <div className="flex items-center justify-end gap-3">
             <label className="flex items-center gap-1 text-[10px] text-muted-foreground">
               From
               <input
@@ -208,7 +198,7 @@ export default function WeightChart({ date, userId, isOwner, targetWeight }: Pro
                     fontSize: 12,
                     color: "#e5e7eb",
                   }}
-                  formatter={(v, name) => [`${typeof v === "number" ? v.toFixed(1) : v} lbs`, name]}
+                  formatter={(v) => [`${v} lbs`, "Weight"]}
                   labelFormatter={(d) => typeof d === "string" ? fmtDate(d) : String(d)}
                   cursor={{ stroke: COLORS.reference, strokeWidth: 1 }}
                 />
@@ -223,22 +213,10 @@ export default function WeightChart({ date, userId, isOwner, targetWeight }: Pro
                 <Line
                   type="monotone"
                   dataKey="weightLbs"
-                  name="Weight"
                   stroke={COLORS.line}
                   strokeWidth={2}
                   dot={{ r: 3, fill: COLORS.dot, strokeWidth: 0 }}
                   activeDot={{ r: 5, fill: COLORS.dot, strokeWidth: 0 }}
-                  connectNulls
-                />
-                <Line
-                  type="monotone"
-                  dataKey="movingAvg"
-                  name="7-day avg"
-                  stroke={COLORS.average}
-                  strokeWidth={2}
-                  strokeDasharray="4 3"
-                  dot={false}
-                  activeDot={{ r: 4, fill: COLORS.average, strokeWidth: 0 }}
                   connectNulls
                 />
               </LineChart>

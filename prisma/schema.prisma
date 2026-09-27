@@ -136,6 +136,7 @@ model UserStats {
   fiberGoalOverride      Int?
   sugarGoalOverride      Int?
   addedSugarGoalOverride Int?
+  weightChartStartDate   String?  // "YYYY-MM-DD" — persisted "From" date on the weight trend chart
   updatedAt   DateTime @updatedAt
   createdAt   DateTime @default(now())
 }
